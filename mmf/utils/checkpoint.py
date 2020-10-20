@@ -183,10 +183,7 @@ class Checkpoint:
         else:
             ckpt = self._torch_load(file)
 
-        if "model" in ckpt:
-            ckpt_model = ckpt["model"]
-        else:
-            ckpt_model = ckpt
+        if "model" not in ckpt:
             ckpt = {"model": ckpt}
 
         pretrained_state_mapping = ckpt_config.pretrained_state_mapping
@@ -194,26 +191,27 @@ class Checkpoint:
         if not load_pretrained or force is True:
             pretrained_state_mapping = {}
 
-        new_dict = {}
-
-        new_dict = self.upgrade_state_dict(ckpt_model)
+        state_dict = self.upgrade_state_dict(ckpt["model"])
 
         if len(pretrained_state_mapping.items()) == 0:
-            final_dict = new_dict
-
-            self.trainer.model.load_state_dict(final_dict, strict=False)
+            self.trainer.model.load_state_dict(state_dict, strict=False)
 
             reset_optimizer = ckpt_config.reset.optimizer or ckpt_config.reset.all
             if not reset_optimizer:
                 self._load_optimizer(ckpt)
 
-            self.trainer.early_stop_callback.early_stopping.init_from_checkpoint(ckpt)
             reset_counts = ckpt_config.reset.all or ckpt_config.reset.counts
-
             if not reset_counts:
+                self.trainer.early_stop_callback.early_stopping.init_from_checkpoint(
+                    ckpt
+                )
                 self._load_counts_and_lr_scheduler(ckpt)
+
+            reset_scaler = ckpt_config.reset.all or ckpt_config.reset.fp16_scaler
+            if not reset_scaler:
+                self._load_fp16_scaler(ckpt)
         else:
-            self._load_pretrained(new_dict)
+            self._load_pretrained(state_dict)
 
         logger.info("Checkpoint loaded.")
         logger.info(f"Current num updates: {self.trainer.num_updates}")
@@ -286,6 +284,12 @@ class Checkpoint:
 
         self.trainer.current_epoch = ckpt.get("best_epoch", self.trainer.current_epoch)
         registry.register("current_epoch", self.trainer.current_epoch)
+
+    def _load_fp16_scaler(self, ckpt):
+        scaler = getattr(self.trainer, "scaler", None)
+        scaler_dict = ckpt.get("fp16_scaler", None)
+        if scaler is not None and scaler_dict is not None:
+            scaler.load_state_dict(scaler_dict)
 
     def _load_pretrained(self, ckpt):
         model = self.trainer.model
@@ -402,6 +406,11 @@ class Checkpoint:
         )
         model = self.trainer.model
         data_parallel = registry.get("data_parallel") or registry.get("distributed")
+        fp16_scaler = getattr(self.trainer, "scaler", None)
+        fp16_scaler_dict = None
+
+        if fp16_scaler is not None:
+            fp16_scaler_dict = fp16_scaler.state_dict()
 
         if data_parallel is True:
             model = model.module
@@ -415,6 +424,7 @@ class Checkpoint:
             "num_updates": update,
             "best_update": best_update,
             "best_metric_value": best_metric,
+            "fp16_scaler": fp16_scaler_dict,
             # Convert to container to avoid any dependencies
             "config": OmegaConf.to_container(self.config, resolve=True),
         }
