@@ -5,7 +5,7 @@ from mmf.datasets.mmf_dataset_builder import MMFDatasetBuilder
 
 
 @registry.register_builder("masked_coco2017")
-class MaskedFlickr30kBuilder(MMFDatasetBuilder):
+class MaskedCoco2017Builder(MMFDatasetBuilder):
     def __init__(
         self,
         dataset_name="masked_coco2017",
