@@ -1,0 +1,25 @@
+model_config:
+    traced_encoder_decoder:
+      losses:
+      - type: caption_cross_entropy
+      bert_model_name: bert-base-uncased
+      training_head_type: pretraining
+      visual_embedding_dim: 2048
+      special_visual_initialize: true
+      embedding_strategy: plain
+      bypass_transformer: false
+      output_attentions: false
+      output_hidden_states: false
+      random_initialize: false
+      freeze_base: false
+      finetune_lr_multiplier: 1
+      # Default points to BERT pooler strategy which is to take
+      # representation of CLS token after passing it through a dense layer
+      pooler_strategy: default
+
+      image_feature_processor:
+        type: projection
+        params:
+          module: linear
+          in_dim: 2048
+          out_dim: 768

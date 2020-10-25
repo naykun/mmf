@@ -206,3 +206,61 @@ class MultiSentenceBertTokenizer(BertTokenizer):
             processed.segment_ids = processed.segment_ids.view(-1)
             processed.lm_label_ids = processed.lm_label_ids.view(-1)
         return processed.to_dict()
+
+@registry.register_processor("traced_bert_tokenizer")
+class TracedBertTokenizer(MaskedTokenProcessor):
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(config, *args, **kwargs)
+        self._probability = 0
+        registry.register("ln_caption_processor",self)
+
+    def __call__(self, item):
+
+        timed_caption = item['timed_caption']
+        tokens = []
+        token_attends = []
+        for i, word in enumerate(timed_caption):
+            text = word['utterance']
+            attend = word['bbox_attend_scores']
+            token = self.tokenize(text)
+            tokens += token
+            token_attends += [attend] * len(token)
+
+        tokens = tokens[:self._max_seq_length]
+        token_attends = token_attends[:self._max_seq_length]
+
+        output = self._convert_to_indices(tokens,token_attends)
+        return output
+
+    def _convert_to_indices(self, tokens, token_attends):
+        attend_length = len(token_attends[0])
+        segment_ids = [0] * len(tokens)
+
+        input_ids = self._tokenizer.convert_tokens_to_ids(tokens)
+        input_mask = [1] * len(input_ids)
+
+        # Zero-pad up to the sequence length.
+        while len(input_ids) < self._max_seq_length:
+            input_ids.append(0)
+            input_mask.append(0)
+            segment_ids.append(0)
+            token_attends.append([0] * attend_length)
+
+        assert len(input_ids) == self._max_seq_length
+        assert len(input_mask) == self._max_seq_length
+        assert len(segment_ids) == self._max_seq_length
+        assert len(token_attends) == self._max_seq_length
+
+        input_ids = torch.tensor(input_ids, dtype=torch.long)
+        input_mask = torch.tensor(input_mask, dtype=torch.long)
+        segment_ids = torch.tensor(segment_ids, dtype=torch.long)
+        token_attends = torch.tensor(token_attends, dtype=torch.float)
+        return {
+            "input_ids": input_ids,
+            "input_mask": input_mask,
+            "segment_ids": segment_ids,
+            "token_attends": token_attends,
+            "text": tokens,
+        }
+    def id2tokens(self,ids):
+        return self._tokenizer.convert_ids_to_tokens(ids)

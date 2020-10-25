@@ -72,3 +72,33 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
             return image_id.rjust(12, "0") + ".npy"
 
         return image_id + ".npy"
+
+class BboxAlignedLocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
+    def __init__(self, config, path, *args, **kwargs):
+        super().__init__(config, path, *args, **kwargs)
+
+    def load_annotation_db(self, path):
+        data = []
+        with open(path) as f:
+            for line in f:
+                annotation = json.loads(line)
+                loc_narr = LocalizedNarrative(**annotation)
+                data.append(
+                    {
+                        "dataset_id": loc_narr.dataset_id,
+                        "image_id": loc_narr.image_id,
+                        "caption": loc_narr.caption,
+                        "feature_path": self._feature_path(
+                            loc_narr.dataset_id, loc_narr.image_id
+                        ),
+                        "timed_caption":annotation['timed_caption'],
+                        "answers": loc_narr.caption
+                    }
+                )
+        self.data = data
+
+    def _feature_path(self, dataset_id, image_id):
+        if "mscoco" in dataset_id.lower():
+            return image_id.rjust(12, "0") + ".npy"
+
+        return image_id + ".npy"

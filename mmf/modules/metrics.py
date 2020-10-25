@@ -313,6 +313,64 @@ class CaptionBleu4Metric(BaseMetric):
         return targets.new_tensor(bleu4, dtype=torch.float)
 
 
+@registry.register_metric("traced_bert_caption_bleu4")
+class TracedCaptionBleu4Metric(BaseMetric):
+    """Metric for calculating caption accuracy using BLEU4 Score.
+
+    **Key:** ``caption_bleu4``
+    """
+
+    def __init__(self):
+        import nltk.translate.bleu_score as bleu_score
+
+        self._bleu_score = bleu_score
+        super().__init__("caption_bleu4")
+        self.caption_processor = registry.get("ln_caption_processor")
+        self.required_params = ["scores", "answers", "captions"]
+
+    def calculate(self, sample_list, model_output, *args, **kwargs):
+        """Calculate accuracy and return it back.
+
+        Args:
+            sample_list (SampleList): SampleList provided by DataLoader for
+                                current iteration
+            model_output (Dict): Dict returned by model.
+
+        Returns:
+            torch.FloatTensor: bleu4 score.
+
+        """
+        # Create reference and hypotheses captions.
+        references = []
+        hypotheses = []
+
+        # References
+        targets = sample_list.text
+        for j, _ in enumerate(targets):
+            img_captions = [
+                targets[j]
+            ]
+            references.append(img_captions)
+
+        # Hypotheses
+        if "captions" in model_output:
+            scores = model_output["captions"]
+        else:
+            scores = torch.max(model_output["scores"], dim=-1)[1]
+        scores = scores.tolist()
+        predictions = []
+        for j, _ in enumerate(scores):
+            caption = self.caption_processor.id2tokens(scores[j])
+            predictions.append(caption)
+        hypotheses.extend(predictions)
+
+        assert len(references) == len(hypotheses)
+        # breakpoint()
+        bleu4 = self._bleu_score.corpus_bleu(references, hypotheses)
+
+        return model_output["scores"].new_tensor(bleu4, dtype=torch.float)
+
+
 @registry.register_metric("vqa_accuracy")
 class VQAAccuracy(BaseMetric):
     """
