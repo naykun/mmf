@@ -15,10 +15,9 @@ from transformers.modeling_bert import (
     BertConfig,
     BertEmbeddings,
     BertEncoder,
-    BertLayerNorm,
     BertPreTrainedModel,
 )
-
+BertLayerNorm = torch.nn.LayerNorm
 
 logger = logging.getLogger(__name__)
 

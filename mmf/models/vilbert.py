@@ -21,14 +21,13 @@ from transformers.modeling_bert import (
     BertConfig,
     BertEmbeddings,
     BertIntermediate,
-    BertLayerNorm,
     BertLMPredictionHead,
     BertOutput,
     BertPredictionHeadTransform,
     BertPreTrainedModel,
     BertSelfOutput,
 )
-
+BertLayerNorm = torch.nn.LayerNorm
 
 class BertSelfAttention(nn.Module):
     def __init__(self, config):

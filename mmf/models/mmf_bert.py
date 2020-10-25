@@ -10,12 +10,11 @@ from transformers.modeling_bert import (
     BertConfig,
     BertEmbeddings,
     BertForPreTraining,
-    BertLayerNorm,
     BertPooler,
     BertPredictionHeadTransform,
     BertPreTrainingHeads,
 )
-
+BertLayerNorm = torch.nn.LayerNorm
 
 @registry.register_model("mmf_bert")
 class MMFBert(Pythia):
