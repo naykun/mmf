@@ -13,7 +13,7 @@ from mmf.utils.configuration import get_mmf_env, load_yaml
 from mmf.utils.distributed import is_master, synchronize
 from mmf.utils.download import download_pretrained_model
 from mmf.utils.file_io import PathManager
-from mmf.utils.general import updir
+from mmf.utils.general import get_current_device, updir
 from omegaconf import OmegaConf
 
 
@@ -80,6 +80,11 @@ def load_pretrained_model(model_name_or_path, *args, **kwargs):
     return {"config": model_config, "checkpoint": ckpt, "full_config": config}
 
 
+def consolidate_optim_state_dict(optimizer):
+    if hasattr(optimizer, "consolidate_state_dict"):
+        optimizer.consolidate_state_dict(recipient_rank=0)
+
+
 class Checkpoint:
     def __init__(self, trainer):
         """
@@ -91,11 +96,8 @@ class Checkpoint:
         self.config = self.trainer.config
         self.save_dir = get_mmf_env(key="save_dir")
         self.model_name = self.config.model
-
         self.ckpt_foldername = self.save_dir
-
-        self.device = registry.get("current_device")
-
+        self.device = get_current_device()
         self.ckpt_prefix = ""
 
         if hasattr(self.trainer.model, "get_ckpt_name"):
