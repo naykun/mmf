@@ -1,6 +1,7 @@
 import torch 
 
 from mmf.common.registry import registry
+from mmf.common.sample import SampleList
 from mmf.models.base_model import BaseModel
 
 from mmf.utils.build import (
@@ -51,6 +52,7 @@ class TracedEncoderDecoder(BaseModel):
         decoder_attentions = decoder_output['decoder_attentions']
         
         model_output = {}
+        model_output["captions"] = torch.max(logits, dim=-1)[1]
         model_output["scores"] = logits
         sample_list["targets"] = decoder_input_ids
 

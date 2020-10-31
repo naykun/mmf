@@ -14,16 +14,11 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
         annotation_path = self._get_path_based_on_index(
             self.config, "annotations", self._index
         )
-        return BboxAlignedLocalizedNarrativesAnnotationDatabase(self.config, annotation_path)
+        return LocalizedNarrativesAnnotationDatabase(self.config, annotation_path)
 
     def __getitem__(self, idx: int) -> Sample:
         sample_info = self.annotation_db[idx]
         current_sample = Sample()
-        processed_caption = self.caption_processor({"timed_caption":sample_info["timed_caption"]})
-        # should be a trace enhanced processor
-        current_sample.update(processed_caption)
-        current_sample.image_id = sample_info["image_id"]
-        current_sample.feature_path = sample_info["feature_path"]
 
         # Get the image features
         if self._use_features:
@@ -34,7 +29,15 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
                 image_info_0.pop("image_id")
             current_sample.update(features)
 
-        return current_sample       
+        # breakpoint()
+        processed_caption = self.caption_processor(
+            {"timed_caption": sample_info["timed_caption"], "bbox_attend_scores": image_info_0['bbox_attend_scores']})
+        # should be a trace enhanced processor
+        current_sample.update(processed_caption)
+        current_sample.image_id = sample_info["image_id"]
+        current_sample.feature_path = sample_info["feature_path"]
+
+        return current_sample
 
 
 class TracedCaptionLocalizedNarrativesDataset(

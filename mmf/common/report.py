@@ -82,5 +82,7 @@ class Report(OrderedDict):
                     + "might not work as expected."
                 )
                 continue
+            if isinstance(self[key], list):
+                self[key] = self[key] + report[key]
             if isinstance(self[key], torch.Tensor):
                 self[key] = torch.cat((self[key], report[key]), dim=0)

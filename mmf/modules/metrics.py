@@ -326,7 +326,7 @@ class TracedCaptionBleu4Metric(BaseMetric):
         self._bleu_score = bleu_score
         super().__init__("caption_bleu4")
         self.caption_processor = registry.get("ln_caption_processor")
-        self.required_params = ["scores", "answers", "captions"]
+        self.required_params = ["captions", "input_ids"]
 
     def calculate(self, sample_list, model_output, *args, **kwargs):
         """Calculate accuracy and return it back.
@@ -345,10 +345,10 @@ class TracedCaptionBleu4Metric(BaseMetric):
         hypotheses = []
 
         # References
-        targets = sample_list.text
+        targets = sample_list.input_ids.tolist()
         for j, _ in enumerate(targets):
             img_captions = [
-                targets[j]
+                self.caption_processor.id2tokens(targets[j]).split()
             ]
             references.append(img_captions)
 
@@ -360,7 +360,7 @@ class TracedCaptionBleu4Metric(BaseMetric):
         scores = scores.tolist()
         predictions = []
         for j, _ in enumerate(scores):
-            caption = self.caption_processor.id2tokens(scores[j])
+            caption = self.caption_processor.id2tokens(scores[j]).split()
             predictions.append(caption)
         hypotheses.extend(predictions)
 

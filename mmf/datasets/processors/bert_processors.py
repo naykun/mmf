@@ -3,6 +3,7 @@
 import random
 
 import torch
+import numpy as np
 from mmf.common.registry import registry
 from mmf.common.sample import Sample, SampleList
 from mmf.datasets.processors.processors import BaseProcessor
@@ -207,21 +208,28 @@ class MultiSentenceBertTokenizer(BertTokenizer):
             processed.lm_label_ids = processed.lm_label_ids.view(-1)
         return processed.to_dict()
 
+
 @registry.register_processor("traced_bert_tokenizer")
 class TracedBertTokenizer(MaskedTokenProcessor):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self._probability = 0
-        registry.register("ln_caption_processor",self)
+        registry.register("ln_caption_processor", self)
 
     def __call__(self, item):
 
         timed_caption = item['timed_caption']
+        bbox_attend_scores = item['bbox_attend_scores']
+        # breakpoint()
+        attend_len = bbox_attend_scores.shape[0]
         tokens = []
         token_attends = []
+        # print(bbox_attend_scores.shape)
+        # print(len(timed_caption))
         for i, word in enumerate(timed_caption):
             text = word['utterance']
-            attend = word['bbox_attend_scores']
+            # wired length mis-matching
+            attend = bbox_attend_scores[min(i, attend_len - 1)]
             token = self.tokenize(text)
             tokens += token
             token_attends += [attend] * len(token)
@@ -229,7 +237,7 @@ class TracedBertTokenizer(MaskedTokenProcessor):
         tokens = tokens[:self._max_seq_length]
         token_attends = token_attends[:self._max_seq_length]
 
-        output = self._convert_to_indices(tokens,token_attends)
+        output = self._convert_to_indices(tokens, token_attends)
         return output
 
     def _convert_to_indices(self, tokens, token_attends):
@@ -244,7 +252,7 @@ class TracedBertTokenizer(MaskedTokenProcessor):
             input_ids.append(0)
             input_mask.append(0)
             segment_ids.append(0)
-            token_attends.append([0] * attend_length)
+            token_attends.append(np.zeros_like(token_attends[0]))
 
         assert len(input_ids) == self._max_seq_length
         assert len(input_mask) == self._max_seq_length
@@ -262,5 +270,6 @@ class TracedBertTokenizer(MaskedTokenProcessor):
             "token_attends": token_attends,
             "text": tokens,
         }
-    def id2tokens(self,ids):
-        return self._tokenizer.convert_ids_to_tokens(ids)
+
+    def id2tokens(self, ids):
+        return self._tokenizer.decode(ids)
