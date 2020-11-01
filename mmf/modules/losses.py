@@ -450,6 +450,52 @@ class AttentionSupervisionLoss(nn.Module):
         return loss * attention_supervision.size(1)
 
 
+@registry.register_loss("ln_attention_supervision")
+class AttentionSupervisionLoss(nn.Module):
+    """Loss for attention supervision. Used in case you want to make attentions
+    similar to some particular values.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.loss_fn = lambda *args, **kwargs: nn.functional.binary_cross_entropy(
+            *args, **kwargs
+        )
+
+    def forward(self, sample_list, model_output):
+        """Calculates and returns the multi loss.
+
+        Args:
+            sample_list (SampleList): SampleList containing `targets` attribute.
+            model_output (Dict): Model output containing `scores` attribute.
+
+        Returns:
+            torch.FloatTensor: Float value for loss.
+
+        """
+        cross_attentions = model_output["cross_attentions"]
+        attention_supervision = sample_list["token_attends"][:,1:]
+        batch_size = attention_supervision.shape[0]
+        
+        loss = None
+        for cross_atten in cross_attentions:
+            cross_attention_mean = cross_atten.mean()
+            cross_attention_var = cross_atten.var()
+            attention_supervision_norm = (attention_supervision - attention_supervision.mean()) / attention_supervision.var() * cross_attention_var + cross_attention_mean
+            loss_item= self.loss_fn(
+                cross_atten.view(batch_size,-1),
+                attention_supervision_norm.view(batch_size,-1).detach(),
+                weight=attention_supervision.view(batch_size,-1).detach(),
+            )
+            if loss:
+                loss += loss_item
+            else:
+                loss = loss_item
+
+        # breakpoint()
+        # Multiply average loss back with target size to get actual loss
+        return loss * attention_supervision.size(1)
+
 @registry.register_loss("weighted_softmax")
 class WeightedSoftmaxLoss(nn.Module):
     def __init__(self):

@@ -59,12 +59,13 @@ class TracedEncoderDecoder(BaseModel):
             decoder_attentions = decoder_output['decoder_attentions']
             cross_attentions = []
             for layer_idx in range(self.config.num_layers):
-                cross_attentions.append(decoder_attentions[layer_idx][1])
+                cross_attentions.append(decoder_attentions[layer_idx][1].mean(dim=1))
             # breakpoint()
 
             model_output = {}
             model_output["captions"] = torch.max(logits, dim=-1)[1]
             model_output["scores"] = logits
+            model_output["cross_attentions"] = cross_attentions
             sample_list["targets"] = sample_list["input_ids"][:,1:]
         else:
             generate_output = self.encoderdecoder.generate(

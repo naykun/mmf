@@ -2,6 +2,7 @@ model_config:
     traced_encoder_decoder:
       losses:
       - type: caption_cross_entropy
+      - type: ln_attention_supervision
       bert_model_name: bert-base-uncased
       training_head_type: pretraining
       visual_embedding_dim: 2048
@@ -14,6 +15,7 @@ model_config:
       freeze_base: false
       finetune_lr_multiplier: 1
       num_layers: 12
+      attention_agg: mean
       # Default points to BERT pooler strategy which is to take
       # representation of CLS token after passing it through a dense layer
       pooler_strategy: default
