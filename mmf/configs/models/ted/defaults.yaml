@@ -13,6 +13,7 @@ model_config:
       random_initialize: false
       freeze_base: false
       finetune_lr_multiplier: 1
+      num_layers: 12
       # Default points to BERT pooler strategy which is to take
       # representation of CLS token after passing it through a dense layer
       pooler_strategy: default

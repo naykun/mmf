@@ -7,14 +7,14 @@ dataset_config:
     - coco.defaults
     features:
       train:
-      - coco/defaults/features/coco_train2017.lmdb
-      - coco/defaults/features/coco_train2017.lmdb
-      - coco/defaults/features/coco_train2017.lmdb
-      - coco/defaults/features/coco_train2017.lmdb
+      - coco/defaults/features/coco_train2017_ln.lmdb
+      - coco/defaults/features/coco_train2017_ln.lmdb
+      - coco/defaults/features/coco_train2017_ln.lmdb
+      - coco/defaults/features/coco_train2017_ln.lmdb
       val:
-      - coco/defaults/features/coco_val2017.lmdb
+      - coco/defaults/features/coco_val2017_ln.lmdb
       test:
-      - coco/defaults/features/coco_val2017.lmdb
+      - coco/defaults/features/coco_val2017_ln.lmdb
     annotations:
       train:
       - localized_narratives/defaults/annotations/bbox_aligned_dev/coco_train_localized_narratives-00000-of-00004.jsonl

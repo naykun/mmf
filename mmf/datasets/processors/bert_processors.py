@@ -234,13 +234,15 @@ class TracedBertTokenizer(MaskedTokenProcessor):
             tokens += token
             token_attends += [attend] * len(token)
 
-        tokens = tokens[:self._max_seq_length]
-        token_attends = token_attends[:self._max_seq_length]
+        tokens = tokens[:self._max_seq_length - 1]
+        token_attends = token_attends[:self._max_seq_length - 1]
 
         output = self._convert_to_indices(tokens, token_attends)
         return output
 
     def _convert_to_indices(self, tokens, token_attends):
+        tokens = [self._CLS_TOKEN] + tokens 
+        token_attends = [np.zeros_like(token_attends[0])] + token_attends
         attend_length = len(token_attends[0])
         segment_ids = [0] * len(tokens)
 
@@ -272,4 +274,4 @@ class TracedBertTokenizer(MaskedTokenProcessor):
         }
 
     def id2tokens(self, ids):
-        return self._tokenizer.decode(ids)
+        return self._tokenizer.decode(ids,skip_special_tokens=True)

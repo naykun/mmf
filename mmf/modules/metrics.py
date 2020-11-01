@@ -368,7 +368,7 @@ class TracedCaptionBleu4Metric(BaseMetric):
         # breakpoint()
         bleu4 = self._bleu_score.corpus_bleu(references, hypotheses)
 
-        return model_output["scores"].new_tensor(bleu4, dtype=torch.float)
+        return sample_list.input_ids.new_tensor(bleu4, dtype=torch.float)
 
 
 @registry.register_metric("vqa_accuracy")
