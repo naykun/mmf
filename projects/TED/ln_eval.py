@@ -16,7 +16,7 @@ def print_metrics(res_metrics):
         "Bleu_4",
         "METEOR",
         "ROUGE_L",
-        "SPICE",
+        # "SPICE",
         "CIDEr",
     ]
     print("\n\n**********\nFinal model performance:\n**********")

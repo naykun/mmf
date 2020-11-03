@@ -68,8 +68,15 @@ class TracedEncoderDecoder(BaseModel):
             model_output["cross_attentions"] = cross_attentions
             sample_list["targets"] = sample_list["input_ids"][:,1:]
         else:
-            generate_output = self.encoderdecoder.generate(
-                input_ids=None, input_embeds=inputs_embeds, max_length=64, decoder_start_token_id=self.BOS_ID)
+            if self.config.inference.type == "beam_search":
+                generate_output = self.encoderdecoder.generate(
+                    input_ids=None, input_embeds=inputs_embeds, decoder_start_token_id=self.BOS_ID, **self.config.inference.args)
+            elif self.config.inference.type == "greedy":
+                generate_output = self.encoderdecoder.generate(
+                    input_ids=None, input_embeds=inputs_embeds, max_length=64, decoder_start_token_id=self.BOS_ID)
+            elif self.config.inference.type == "nucleus_sampling":
+                generate_output = self.encoderdecoder.generate(
+                    input_ids=None, input_embeds=inputs_embeds, decoder_start_token_id=self.BOS_ID, **self.config.inference.args)
             model_output = {}
             model_output["captions"] = generate_output
             model_output["losses"] = {}

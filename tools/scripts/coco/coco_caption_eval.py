@@ -41,7 +41,6 @@ class COCOEvalCap:
         gts = {k:[' '.join(v)] for k,v in tokenizer.tokenize(gts).items()}
         res = {k:[' '.join(v)] for k,v in tokenizer.tokenize(res).items()}
 
-        breakpoint()
         # =================================================
         # Set up scorers
         # =================================================
@@ -51,7 +50,7 @@ class COCOEvalCap:
             (Meteor(), "METEOR"),
             (Rouge(), "ROUGE_L"),
             (Cider(), "CIDEr"),
-            (Spice(), "SPICE"),
+            # (Spice(), "SPICE"),
         ]
 
         # =================================================

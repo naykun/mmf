@@ -1,0 +1,42 @@
+includes:
+- ../../../../mmf/configs/datasets/coco2017/traced_caption.yaml
+
+model_config:
+  traced_encoder_decoder:
+    inference: 
+      type: beam_search
+      args: 
+        num_beams: 5
+        max_length: 64
+        early_stopping: true
+        eos_token_id: 0
+        num_return_sequences: 1
+        no_repeat_ngram_size: 3
+
+
+optimizer:
+  type: adam_w
+  params:
+    lr: 5e-5
+    eps: 1e-8
+
+scheduler:
+  type: warmup_linear
+  params:
+    num_warmup_steps: 1000
+    num_training_steps: 11000
+
+training:
+  batch_size: 32
+  lr_scheduler: true
+  num_workers: 0
+  # Don't forget to update schedule_attributes if you update this
+  max_updates: 88000
+  find_unused_parameters: true
+
+evaluation:
+  metrics:
+  - traced_bert_caption_bleu4
+# checkpoint:
+#   pretrained_state_mapping:
+#     model.bert: model.bert

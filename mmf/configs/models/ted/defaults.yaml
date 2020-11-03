@@ -19,7 +19,8 @@ model_config:
       # Default points to BERT pooler strategy which is to take
       # representation of CLS token after passing it through a dense layer
       pooler_strategy: default
-
+      inference: 
+        type: greedy
       image_feature_processor:
         type: projection
         params:
