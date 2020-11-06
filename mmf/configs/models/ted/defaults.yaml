@@ -2,7 +2,6 @@ model_config:
     traced_encoder_decoder:
       losses:
       - type: caption_cross_entropy
-      - type: ln_attention_supervision
       bert_model_name: bert-base-uncased
       training_head_type: pretraining
       visual_embedding_dim: 2048
