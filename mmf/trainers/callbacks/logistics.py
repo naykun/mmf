@@ -111,6 +111,7 @@ class LogisticsCallback(Callback):
         if self.training_config.tensorboard:
             scalar_dict = meter.get_scalar_dict()
             self.tb_writer.add_scalars(scalar_dict, self.trainer.current_iteration)
+            self.tb_writer.flush()
 
         if not should_print:
             return
