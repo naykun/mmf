@@ -5,6 +5,7 @@ import json
 import numpy as np
 
 import tools.scripts.coco.coco_caption_eval as coco_caption_eval
+import os 
 
 
 def print_metrics(res_metrics):
@@ -30,13 +31,19 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pred_file", type=str, required=True)
+    parser.add_argument("--pred_dir", type=str, required=True)
     parser.add_argument("--annotation_file", type=str, required=True)
     parser.add_argument("--set", type=str, default="val")
     args = parser.parse_args()
 
-    with open(args.pred_file) as f:
-        preds = json.load(f)
+    preds = None
+    for p,_,fn in os.walk(args.pred_dir):
+        print(fn)
+        if len(fn) > 0 and "caption_coco2017_run_test" in fn[0] and fn[0].endswith('.json'):
+            with open(os.path.join(p,fn[0])) as f:
+                # print(fn)
+                preds = json.load(f)
+            # break
     annotation_file = args.annotation_file
     # imdb = json.load(open(annotation_file,'r'))
     
