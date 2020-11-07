@@ -29,7 +29,7 @@ training:
   max_updates: 88000
   find_unused_parameters: true
   early_stop:
-    criteria: traced_bert_caption_bleu4
+    criteria: val/caption_coco2017/traced_bert_caption_bleu4
     minimize: false
 evaluation:
   metrics:

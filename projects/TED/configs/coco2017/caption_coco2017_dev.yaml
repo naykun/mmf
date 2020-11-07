@@ -1,11 +1,5 @@
 includes:
-- ../../../../mmf/configs/datasets/coco2017/traced_caption.yaml
-
-model_config:
-    traced_encoder_decoder:
-      losses:
-      - type: caption_cross_entropy
-      - type: ln_attention_supervision
+  - ../../../../mmf/configs/datasets/coco2017/traced_caption_dev.yaml
 
 optimizer:
   type: adam_w
@@ -20,6 +14,9 @@ scheduler:
     num_training_steps: 11000
 
 training:
+  evaluation_interval: 10
+  checkpoint_interval: 10
+  log_interval: 10
   clip_norm_mode: all
   clip_gradients: true
   max_grad_l2_norm: 0.25
@@ -35,10 +32,6 @@ training:
   early_stop:
     criteria: val/caption_coco2017/traced_bert_caption_bleu4
     minimize: false
-
 evaluation:
   metrics:
-  - traced_bert_caption_bleu4
-# checkpoint:
-#   pretrained_state_mapping:
-#     model.bert: model.bert
+    - traced_bert_caption_bleu4
