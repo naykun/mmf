@@ -275,3 +275,5 @@ class TracedBertTokenizer(MaskedTokenProcessor):
 
     def id2tokens(self, ids):
         return self._tokenizer.decode(ids,skip_special_tokens=True)
+    def id2rawtoken(self,ids):
+        return self._tokenizer.convert_ids_to_tokens(ids)

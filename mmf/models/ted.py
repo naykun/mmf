@@ -56,10 +56,9 @@ class TracedEncoderDecoder(BaseModel):
                 output_attentions=True, return_dict=True)
 
             logits = decoder_output['logits']
-            decoder_attentions = decoder_output['decoder_attentions']
             cross_attentions = []
-            for layer_idx in range(self.config.num_layers):
-                cross_attentions.append(decoder_attentions[layer_idx][1].mean(dim=1))
+            for cross_attention in decoder_output['cross_attentions']:
+                cross_attentions.append(cross_attention.mean(dim=1))
             # breakpoint()
 
             model_output = {}
@@ -70,14 +69,28 @@ class TracedEncoderDecoder(BaseModel):
         else:
             if self.config.inference.type == "beam_search":
                 generate_output = self.encoderdecoder.generate(
-                    input_ids=None, input_embeds=inputs_embeds, decoder_start_token_id=self.BOS_ID, **self.config.inference.args)
+                    input_ids=None, input_embeds=inputs_embeds, bos_token_id=self.BOS_ID, decoder_start_token_id=self.BOS_ID, **self.config.inference.args)
             elif self.config.inference.type == "greedy":
                 generate_output = self.encoderdecoder.generate(
-                    input_ids=None, input_embeds=inputs_embeds, max_length=64, decoder_start_token_id=self.BOS_ID)
+                    input_ids=None, input_embeds=inputs_embeds, max_length=64, bos_token_id=self.BOS_ID, decoder_start_token_id=self.BOS_ID)
             elif self.config.inference.type == "nucleus_sampling":
                 generate_output = self.encoderdecoder.generate(
-                    input_ids=None, input_embeds=inputs_embeds, decoder_start_token_id=self.BOS_ID, **self.config.inference.args)
+                    input_ids=None, input_embeds=inputs_embeds, bos_token_id=self.BOS_ID, decoder_start_token_id=self.BOS_ID, **self.config.inference.args)
             model_output = {}
+            if self.config.inference.return_attention:
+                with torch.no_grad():
+                    attention_temp_output = self.encoderdecoder(
+                        decoder_input_ids=generate_output,
+                        inputs_embeds=inputs_embeds,
+                        output_attentions=True, return_dict=True)
+                    cross_attentions = []
+                    for cross_attention in attention_temp_output['cross_attentions']:
+                        cross_attentions.append(cross_attention.mean(dim=1))
+                    # breakpoint()
+                    cross_attentions = torch.stack(cross_attentions).max(dim=0)[0].max(dim=-1)[1]
+                    model_output['cross_attention'] = cross_attentions
+                # breakpoint()
+
             model_output["captions"] = generate_output
             model_output["losses"] = {}
             loss_key = "{}/{}".format(

@@ -13,6 +13,7 @@ model_config:
         num_return_sequences: 1
         top_k: 50
         top_p: 0.95 
+      return_attention: true
 
 
 optimizer:

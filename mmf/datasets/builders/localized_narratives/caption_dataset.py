@@ -42,14 +42,17 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
 
     def format_for_prediction(self, report):
         captions = report.captions.tolist()
+        cross_attentions = report.cross_attention.tolist()
         predictions = []
 
         for idx, image_id in enumerate(report.image_id):
             image_id = byte_tensor_to_object(image_id)
+            cross_attention = cross_attentions[idx]
             caption = self.caption_processor.id2tokens(captions[idx]).split()
+            raw_caption = self.caption_processor.id2rawtoken(captions[idx])
             if isinstance(image_id, torch.Tensor):
                 image_id = image_id.item()
-            predictions.append({"image_id": image_id, "caption": caption})
+            predictions.append({"image_id": image_id, "caption": caption, "cross_attention": cross_attention, "raw_caption" : raw_caption})
 
         return predictions
 
