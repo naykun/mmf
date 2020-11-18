@@ -33,6 +33,12 @@ class M4C(BaseModel):
     def config_path(cls):
         return "configs/models/m4c/defaults.yaml"
 
+    @classmethod
+    def format_state_key(cls, key):
+        key = key.replace("obj_faster_rcnn_fc7.module.lc", "obj_faster_rcnn_fc7.lc")
+        key = key.replace("ocr_faster_rcnn_fc7.module.lc", "ocr_faster_rcnn_fc7.lc")
+        return key
+
     def build(self):
         # modules requiring custom learning rates (usually for finetuning)
         self.finetune_modules = []
@@ -104,8 +110,8 @@ class M4C(BaseModel):
         # object location feature: relative bounding box coordinates (4-dim)
         self.linear_obj_bbox_to_mmt_in = nn.Linear(4, self.mmt_config.hidden_size)
 
-        self.obj_feat_layer_norm = BertLayerNorm(self.mmt_config.hidden_size)
-        self.obj_bbox_layer_norm = BertLayerNorm(self.mmt_config.hidden_size)
+        self.obj_feat_layer_norm = nn.LayerNorm(self.mmt_config.hidden_size)
+        self.obj_bbox_layer_norm = nn.LayerNorm(self.mmt_config.hidden_size)
         self.obj_drop = nn.Dropout(self.config.obj.dropout_prob)
 
     def _build_ocr_encoding(self):
@@ -134,8 +140,8 @@ class M4C(BaseModel):
         # OCR location feature: relative bounding box coordinates (4-dim)
         self.linear_ocr_bbox_to_mmt_in = nn.Linear(4, self.mmt_config.hidden_size)
 
-        self.ocr_feat_layer_norm = BertLayerNorm(self.mmt_config.hidden_size)
-        self.ocr_bbox_layer_norm = BertLayerNorm(self.mmt_config.hidden_size)
+        self.ocr_feat_layer_norm = nn.LayerNorm(self.mmt_config.hidden_size)
+        self.ocr_bbox_layer_norm = nn.LayerNorm(self.mmt_config.hidden_size)
         self.ocr_drop = nn.Dropout(self.config.ocr.dropout_prob)
 
     def _build_mmt(self):
@@ -498,9 +504,9 @@ class PrevPredEmbeddings(nn.Module):
         self.position_embeddings = nn.Embedding(MAX_DEC_LENGTH, hidden_size)
         self.token_type_embeddings = nn.Embedding(MAX_TYPE_NUM, hidden_size)
 
-        self.ans_layer_norm = BertLayerNorm(hidden_size, eps=ln_eps)
-        self.ocr_layer_norm = BertLayerNorm(hidden_size, eps=ln_eps)
-        self.emb_layer_norm = BertLayerNorm(hidden_size, eps=ln_eps)
+        self.ans_layer_norm = nn.LayerNorm(hidden_size, eps=ln_eps)
+        self.ocr_layer_norm = nn.LayerNorm(hidden_size, eps=ln_eps)
+        self.emb_layer_norm = nn.LayerNorm(hidden_size, eps=ln_eps)
         self.emb_dropout = nn.Dropout(config.hidden_dropout_prob)
 
     def forward(self, ans_emb, ocr_emb, prev_inds):
