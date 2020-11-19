@@ -215,6 +215,47 @@ class ProjectionEmbedding(nn.Module):
         return self.layers(x)
 
 
+class VisionSpatialEmbedding(nn.Module):
+    def __init__(self, module, feat_dim, pos_dim, hidden_size, hidden_dropout_prob, **kwargs):
+        super().__init__()
+        if module == "linear":
+            self.out_dim = hidden_size
+            self.visn_fc = nn.Linear(feat_dim, hidden_size)
+            self.visn_layer_norm = nn.LayerNorm(hidden_size, eps=1e-12)
+
+            # Box position encoding
+            self.box_fc = nn.Linear(pos_dim, hidden_size)
+            self.box_layer_norm = nn.LayerNorm(hidden_size, eps=1e-12)
+
+            self.dropout = nn.Dropout(hidden_dropout_prob)
+        elif module == "conv":
+            last_out_channels = feat_dim
+            layers = []
+            for conv in kwargs["convs"]:
+                layers.append(nn.Conv1d(in_channels=last_out_channels, **conv))
+                last_out_channels = conv["out_channels"]
+            self.layers = nn.ModuleList(*layers)
+            self.out_dim = last_out_channels
+        else:
+            raise TypeError(
+                "Unknown module type for 'ProjectionEmbedding',"
+                "use either 'linear' or 'conv'"
+            )
+
+    def forward(self, feats, boxes):
+        # breakpoint()
+        x = self.visn_fc(feats)
+        x = self.visn_layer_norm(x)
+        if boxes is not None:
+            y = self.box_fc(boxes)
+            y = self.box_layer_norm(y)
+            output = (x + y) / 2
+        else:
+            output = x
+
+        output = self.dropout(output)
+        return output
+
 class ImageFeatureEmbedding(nn.Module):
     """
     parameters:

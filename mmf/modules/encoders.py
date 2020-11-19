@@ -9,7 +9,7 @@ from typing import Any
 import torch
 import torchvision
 from mmf.common.registry import registry
-from mmf.modules.embeddings import ProjectionEmbedding, TextEmbedding
+from mmf.modules.embeddings import ProjectionEmbedding, TextEmbedding, VisionSpatialEmbedding
 from mmf.modules.hf_layers import BertModelJit
 from mmf.modules.layers import Identity
 from mmf.utils.build import build_image_encoder, build_text_encoder
@@ -81,6 +81,8 @@ class ImageFeatureEncoderFactory(EncoderFactory):
             self.module = ProjectionEmbedding(**params)
         elif encoder_type == "finetune_faster_rcnn_fpn_fc7":
             self.module = FinetuneFasterRcnnFpnFc7(params)
+        elif encoder_type == "spatial":
+            self.module = VisionSpatialEmbedding(**params)
         else:
             raise NotImplementedError("Unknown Image Encoder: %s" % encoder_type)
 

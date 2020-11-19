@@ -28,6 +28,7 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
             if image_info_0 and "image_id" in image_info_0.keys():
                 image_info_0["feature_path"] = image_info_0["image_id"]
                 image_info_0.pop("image_id")
+            self.transformer_bbox_processor(features['image_info_0'])
             current_sample.update(features)
 
         # breakpoint()

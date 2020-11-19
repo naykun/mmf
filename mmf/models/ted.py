@@ -43,10 +43,15 @@ class TracedEncoderDecoder(BaseModel):
         segment_ids = sample_list["segment_ids"]
         token_attends = sample_list['token_attends']
 
-        bbox_feature = sample_list['image_feature_0']
+        if self.config.image_feature_processor.type == 'spatial':
+            bbox_feature = sample_list['image_feature_0']
+            spatial_feature = sample_list['image_info_0']['bbox']
 
-        # maybe positional encoder later
-        inputs_embeds = self.image_feature_module(bbox_feature)
+            # maybe positional encoder later
+            inputs_embeds = self.image_feature_module(bbox_feature, spatial_feature)
+        else:
+            bbox_feature = sample_list['image_feature_0']
+            input_embeds = self.image_feature_module(bbox_feature)
         batch_size = inputs_embeds.shape[0]
 
         if self.training:
