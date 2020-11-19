@@ -6,7 +6,7 @@ import numpy as np
 
 import tools.scripts.coco.coco_caption_eval as coco_caption_eval
 import os 
-
+import json
 
 def print_metrics(res_metrics):
     print(res_metrics)
@@ -24,6 +24,10 @@ def print_metrics(res_metrics):
     for k in keys:
         print(k, ": %.1f" % (res_metrics[k] * 100))
 
+def dump_to_json(output_path, res_metrics):
+    filepath = os.path.join(output_path,"metric.json")
+    json.dump(res_metrics,open(filepath,'w'))
+
 def pad_filter(tokenlist):
     return [token for token in tokenlist if token != "[PAD]"]
 
@@ -34,6 +38,7 @@ if __name__ == "__main__":
     parser.add_argument("--pred_dir", type=str, required=True)
     parser.add_argument("--annotation_file", type=str, required=True)
     parser.add_argument("--set", type=str, default="val")
+    parser.add_argument("--json-dir", default=os.environ.get('PT_OUTPUT_DIR','save'))
     args = parser.parse_args()
 
     preds = None
@@ -62,3 +67,4 @@ if __name__ == "__main__":
     )
 
     print_metrics(metrics)
+    dump_to_json(args.json_dir, metrics)
