@@ -51,7 +51,7 @@ class TracedEncoderDecoder(BaseModel):
             inputs_embeds = self.image_feature_module(bbox_feature, spatial_feature)
         else:
             bbox_feature = sample_list['image_feature_0']
-            input_embeds = self.image_feature_module(bbox_feature)
+            inputs_embeds = self.image_feature_module(bbox_feature)
         batch_size = inputs_embeds.shape[0]
 
         if self.training:
@@ -82,7 +82,8 @@ class TracedEncoderDecoder(BaseModel):
                 generate_output = self.encoderdecoder.generate(
                     input_ids=None, input_embeds=inputs_embeds, bos_token_id=self.BOS_ID, decoder_start_token_id=self.BOS_ID, **self.config.inference.args)
             model_output = {}
-            if self.config.inference.return_attention:
+            # breakpoint()
+            if 'return_attention' in self.config.inference and self.config.inference.return_attention:
                 with torch.no_grad():
                     attention_temp_output = self.encoderdecoder(
                         decoder_input_ids=generate_output,
