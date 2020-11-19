@@ -18,8 +18,8 @@ from mmf.utils.file_io import PathManager
 from mmf.utils.general import get_absolute_path
 from omegaconf import MISSING, OmegaConf
 from torch import nn
-from transformers.configuration_auto import AutoConfig
-from transformers.modeling_auto import AutoModel
+from transformers.models.auto.configuration_auto import AutoConfig
+from transformers.models.auto.modeling_auto import AutoModel
 
 
 class Encoder(nn.Module):
