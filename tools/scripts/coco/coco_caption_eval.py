@@ -38,8 +38,11 @@ class COCOEvalCap:
         # =================================================
         print("tokenization...")
         tokenizer = PTBTokenizer()
-        gts = {k:[' '.join(v)] for k,v in tokenizer.tokenize(gts).items()}
-        res = {k:[' '.join(v)] for k,v in tokenizer.tokenize(res).items()}
+        # gts = {k:[' '.join(v)] for k,v in tokenizer.tokenize(gts).items()}
+        # res = {k:[' '.join(v)] for k,v in tokenizer.tokenize(res).items()}
+        gts = tokenizer.tokenize(gts)
+        res = {k:v[:1] for k, v in tokenizer.tokenize(res).items()}
+        # breakpoint()
 
         # =================================================
         # Set up scorers

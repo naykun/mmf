@@ -58,7 +58,7 @@ if __name__ == "__main__":
             info = json.loads(line)
             gts.append({"image_id": info["image_id"], "caption": info["caption"]} 
             )
-            # breakpoint()
+    # breakpoint()
     preds = [{"image_id": p["image_id"], "caption": ' '.join(pad_filter(p["caption"]))} for p in preds]
     imgids = list({g["image_id"] for g in gts})
 
