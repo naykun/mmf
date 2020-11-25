@@ -74,7 +74,7 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
 
         return image_id + ".npy"
 
-# deperated
+# deprecated
 class BboxAlignedLocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
     def __init__(self, config, path, *args, **kwargs):
         super().__init__(config, path, *args, **kwargs)
