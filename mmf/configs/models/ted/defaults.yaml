@@ -18,6 +18,7 @@ model_config:
       # Default points to BERT pooler strategy which is to take
       # representation of CLS token after passing it through a dense layer
       pooler_strategy: default
+      concate_trace: false
       inference: 
         type: greedy
       image_feature_processor:
@@ -26,3 +27,9 @@ model_config:
           module: linear
           in_dim: 2048
           out_dim: 768
+      trace_feature_encoder:
+        type: tracebox_encoder
+        params:
+          input_size: 5
+          hidden_size: 768 
+          num_positions: 64

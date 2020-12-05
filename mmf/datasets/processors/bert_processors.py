@@ -277,3 +277,42 @@ class TracedBertTokenizer(MaskedTokenProcessor):
         return self._tokenizer.decode(ids,skip_special_tokens=True)
     def id2rawtoken(self,ids):
         return self._tokenizer.convert_ids_to_tokens(ids)
+
+@registry.register_processor("spatial_trace_tokenizer")
+class TracedBertTokenizer(BaseProcessor):
+    def __init__(self, config, *args, **kwargs):
+        self._max_seq_length = config.max_seq_length
+        self.delta = config.delta
+
+    def __call__(self, image_info_0, sample_info):
+        h, w = (image_info_0['image_height'], image_info_0['image_width'])
+        traces = [x for tr in sample_info['traces'] for x in tr]
+        current_t = 0
+        current_trace_window = []
+        trace_boxes = []
+        for t in traces:
+            if t['t'] > current_t:
+                current_t += 0.4
+                if len(current_trace_window) > 0:
+                    points = np.array(current_trace_window)
+                    x1, y1 = points.min(axis=0) * (1 - self.delta)
+                    x2, y2 = points.max(axis=0) * (1 + self.delta)
+                    area = (x2 - x1) * (y2 - y1)
+                    trace_boxes.append([x1, y1, x2, y2, area])
+                    current_trace_window = []
+            else:
+                current_trace_window.append([t['x'],t['y']])
+        trace_boxes, trace_boxes_mask, trace_boxes_seg_id = self._trancate(trace_boxes)
+        trace_boxes = torch.tensor(trace_boxes, dtype=torch.float)
+        trace_boxes_mask = torch.tensor(trace_boxes_mask, dtype=torch.long)
+        trace_boxes_seg_id = torch.tensor(trace_boxes_seg_id, dtype=torch.long)
+        return {"trace_boxes":trace_boxes, "trace_boxes_mask": trace_boxes_mask, "trace_boxes_seg_id": trace_boxes_seg_id}
+    def _trancate(self, boxes):
+        boxes = boxes[:self._max_seq_length]
+        num_boxes = len(boxes)
+        appendix = [[0.0] * 5] * (self._max_seq_length - num_boxes)
+        boxes += appendix
+        box_mask = [1] * num_boxes + [0] * (self._max_seq_length - num_boxes)
+        box_seg_id = [1] * self._max_seq_length
+        return boxes, box_mask, box_seg_id 
+        

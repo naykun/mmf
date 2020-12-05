@@ -1,5 +1,6 @@
 from abc import ABC
 import torch
+import numpy as np
 
 from mmf.common.sample import Sample
 from mmf.common.typings import MMFDatasetConfigType
@@ -32,6 +33,9 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
             current_sample.update(features)
 
         # breakpoint()
+        processed_traces = self.trace_bbox_processor(image_info_0, sample_info)
+        current_sample.update(processed_traces)
+
         processed_caption = self.caption_processor(
             {"timed_caption": sample_info["timed_caption"], "bbox_attend_scores": image_info_0['bbox_attend_scores']})
         # should be a trace enhanced processor

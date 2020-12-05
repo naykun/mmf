@@ -40,4 +40,9 @@ dataset_config:
           bbox_key: bbox
           image_width_key: image_width
           image_height_key: image_height
+      trace_bbox_processor:
+        type: spatial_trace_tokenizer
+        params:
+          max_seq_length: 64
+          delta: 0.1
 

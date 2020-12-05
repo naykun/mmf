@@ -9,7 +9,7 @@ from typing import Any
 import torch
 import torchvision
 from mmf.common.registry import registry
-from mmf.modules.embeddings import ProjectionEmbedding, TextEmbedding, VisionSpatialEmbedding
+from mmf.modules.embeddings import ProjectionEmbedding, TextEmbedding, VisionSpatialEmbedding, SinusoidalPositionalEmbedding
 from mmf.modules.hf_layers import BertModelJit
 from mmf.modules.layers import Identity
 from mmf.utils.build import build_image_encoder, build_text_encoder
@@ -416,3 +416,31 @@ class MultiModalEncoderBase(Encoder):
         return build_image_encoder(
             config, direct_features=self._is_direct_features_input
         )
+
+@registry.register_encoder("tracebox_encoder")
+class TraceBoxEncoder(Encoder):
+    @dataclass
+    class Config(Encoder.Config):
+        name: str = "tracebox_encoder"
+        input_size: int = 5
+        hidden_size: int = 512
+        num_positions: int = 64
+        # Keeping this Any for now as this
+        # needs a separate refactor PR.
+        # embedding_params: Any = MISSING
+
+    def __init__(self, config: Config):
+        super().__init__()
+        self.linear_projection = nn.Linear(config.input_size, config.hidden_size)
+        self.position_embedding = SinusoidalPositionalEmbedding(config.num_positions, config.hidden_size)
+        self.box_layer_norm = nn.LayerNorm(config.hidden_size, eps=1e-12)
+        self.position_layer_norm = nn.LayerNorm(config.hidden_size, eps=1e-12)
+    
+    def forward(self, trace_boxes):
+        # import ipdb; ipdb.set_trace()
+        boxes_encoding = self.box_layer_norm(self.linear_projection(trace_boxes))
+        position_encoding = self.position_embedding(trace_boxes)
+        output = self.position_layer_norm(boxes_encoding + position_encoding)
+        return output
+
+

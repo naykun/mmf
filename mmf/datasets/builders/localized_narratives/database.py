@@ -63,7 +63,8 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
                         "feature_path": self._feature_path(
                             loc_narr.dataset_id, loc_narr.image_id
                         ),
-                        "timed_caption": loc_narr.timed_caption
+                        "timed_caption": loc_narr.timed_caption,
+                        "traces":loc_narr.traces
                     }
                 )
         self.data = data
