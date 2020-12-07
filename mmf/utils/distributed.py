@@ -20,49 +20,52 @@ def ompi_rank():
     """Find OMPI world rank without calling mpi functions
     :rtype: int
     """
-    return int(os.environ.get('OMPI_COMM_WORLD_RANK') or 0)
+    return int(os.environ.get("OMPI_COMM_WORLD_RANK") or 0)
 
 
 def ompi_size():
     """Find OMPI world size without calling mpi functions
     :rtype: int
     """
-    return int(os.environ.get('OMPI_COMM_WORLD_SIZE') or 1)
+    return int(os.environ.get("OMPI_COMM_WORLD_SIZE") or 1)
 
-	
+
 def ompi_local_rank():
     """Find OMPI local rank without calling mpi functions
     :rtype: int
     """
-    return int(os.environ.get('OMPI_COMM_WORLD_LOCAL_RANK') or 0)
+    return int(os.environ.get("OMPI_COMM_WORLD_LOCAL_RANK") or 0)
 
 
 def ompi_local_size():
     """Find OMPI local size without calling mpi functions
     :rtype: int
     """
-    return int(os.environ.get('OMPI_COMM_WORLD_LOCAL_SIZE') or 1)
+    return int(os.environ.get("OMPI_COMM_WORLD_LOCAL_SIZE") or 1)
+
 
 def get_master_machine():
-    host_file_path = os.environ.get('PHILLY_SCRATCH_DIR')
-    mpi_host_file = os.path.join(host_file_path,'mpi-hosts')
-    with open(mpi_host_file, 'r') as f:
+    host_file_path = os.environ.get("PHILLY_SCRATCH_DIR")
+    mpi_host_file = os.path.join(host_file_path, "mpi-hosts")
+    with open(mpi_host_file, "r") as f:
         master_name = f.readline().strip()
     return master_name
+
 
 def get_master_ip(master_name=None):
     if master_name is None:
         master_name = get_master_machine()
-    etc_host_file = '/etc/hosts'
-    with open(etc_host_file, 'r') as f:
+    etc_host_file = "/etc/hosts"
+    with open(etc_host_file, "r") as f:
         name_ip_pairs = f.readlines()
     name2ip = {}
     for name_ip_pair in name_ip_pairs:
-        pair_list = name_ip_pair.split(' ')
+        pair_list = name_ip_pair.split(" ")
         key = pair_list[1].strip()
         value = pair_list[0]
         name2ip[key] = value
     return name2ip[master_name]
+
 
 def synchronize():
     if not dist.is_available():
@@ -218,18 +221,22 @@ def infer_init_method(config):
     if config.distributed.init_method is not None:
         return
     # support open mpi run
-    if all( 
-        key in os.environ 
-        for key in ["OMPI_COMM_WORLD_RANK","OMPI_COMM_WORLD_SIZE","OMPI_COMM_WORLD_LOCAL_RANK","OMPI_COMM_WORLD_LOCAL_SIZE"]
+    if all(
+        key in os.environ
+        for key in [
+            "OMPI_COMM_WORLD_RANK",
+            "OMPI_COMM_WORLD_SIZE",
+            "OMPI_COMM_WORLD_LOCAL_RANK",
+            "OMPI_COMM_WORLD_LOCAL_SIZE",
+        ]
     ):
         config.distributed.backend = "nccl"
         config.distributed.init_method = "tcp://{host}:{port}".format(
-            host=get_master_ip(),
-            port=config.distributed.port
+            host=get_master_ip(), port=config.distributed.port
         )
         config.distributed.world_size = ompi_size()
         config.distributed.rank = ompi_rank()
-        
+
     # support torch.distributed.launch
     if all(
         key in os.environ

@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 
 import torch
 from torch import Tensor, nn
+from transformers.modeling_utils import PreTrainedModel
 from transformers.models.bert.modeling_bert import (
     BertAttention,
     BertEmbeddings,
@@ -23,7 +24,6 @@ from transformers.models.roberta.modeling_roberta import (
     RobertaModel,
     RobertaSelfAttention,
 )
-from transformers.modeling_utils import PreTrainedModel
 
 
 def replace_with_jit():

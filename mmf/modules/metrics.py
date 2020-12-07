@@ -347,9 +347,7 @@ class TracedCaptionBleu4Metric(BaseMetric):
         # References
         targets = sample_list.input_ids.tolist()
         for j, _ in enumerate(targets):
-            img_captions = [
-                self.caption_processor.id2tokens(targets[j]).split()
-            ]
+            img_captions = [self.caption_processor.id2tokens(targets[j]).split()]
             references.append(img_captions)
 
         # Hypotheses

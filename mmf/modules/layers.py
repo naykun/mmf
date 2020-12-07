@@ -729,8 +729,7 @@ class BranchCombineLayer(nn.Module):
 
 
 class AttnPool1d(nn.Module):
-    """An attention pooling layer that learns weights using an mlp
-    """
+    """An attention pooling layer that learns weights using an mlp"""
 
     def __init__(self, num_features: int, num_attn: int = 1, dropout: float = 0.1):
         super().__init__()

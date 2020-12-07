@@ -6,7 +6,10 @@ from mmf.datasets.builders.localized_narratives.caption_dataset import (
 )
 from mmf.datasets.mmf_dataset import MMFDataset
 
-class TracedCaptionCoco2017Dataset(TracedCaptionLocalizedNarrativesDatasetMixin, MMFDataset):
+
+class TracedCaptionCoco2017Dataset(
+    TracedCaptionLocalizedNarrativesDatasetMixin, MMFDataset
+):
     def __init__(
         self,
         config: MMFDatasetConfigType,

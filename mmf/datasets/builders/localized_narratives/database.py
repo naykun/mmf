@@ -64,7 +64,7 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
                             loc_narr.dataset_id, loc_narr.image_id
                         ),
                         "timed_caption": loc_narr.timed_caption,
-                        "traces":loc_narr.traces
+                        "traces": loc_narr.traces,
                     }
                 )
         self.data = data
@@ -75,33 +75,33 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
 
         return image_id + ".npy"
 
+
 # deprecated
 class BboxAlignedLocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
     def __init__(self, config, path, *args, **kwargs):
         super().__init__(config, path, *args, **kwargs)
 
-
     def load_annotation_db(self, path):
         data = []
-        with open(path) as f:
-            for line_num, line in enumerate(f):
-                # not work
-                need_keys = ["dataset_id", "image_id", "caption"]
-                loc_narr = {}
-                print(line_num,end='\r')
-                for k,v in ijson.kvitems(line,""):
-                    if k in need_keys:
-                        loc_narr[k] = v
-                    elif k=="timed_caption":
-                        attend_score = []
-                        for word in v:
-                            attend_score.append(word["bbox_attend_scores"])
-                            # del word["bbox_attend_scores"]
-                        loc_narr["attend_scores"] = numpy.array(attend_score,dtype=float)
-                        loc_narr["timed_caption"] = v
+        # with open(path) as f:
+        #     for line_num, line in enumerate(f):
+        #         # not work
+        #         need_keys = ["dataset_id", "image_id", "caption"]
+        #         loc_narr = {}
+        #         print(line_num,end='\r')
+        #         for k,v in ijson.kvitems(line,""):
+        #             if k in need_keys:
+        #                 loc_narr[k] = v
+        #             elif k=="timed_caption":
+        #                 attend_score = []
+        #                 for word in v:
+        #                     attend_score.append(word["bbox_attend_scores"])
+        #                     # del word["bbox_attend_scores"]
+        #                 loc_narr["attend_scores"] = numpy.array(attend_score,dtype=float)
+        #                 loc_narr["timed_caption"] = v
 
-                loc_narr["feature_path"] = self._feature_path(loc_narr["dataset_id"],loc_narr["image_id"])
-                data.append(loc_narr)
+        #         loc_narr["feature_path"] = self._feature_path(loc_narr["dataset_id"],loc_narr["image_id"])
+        #         data.append(loc_narr)
         self.data = data
 
     def _feature_path(self, dataset_id, image_id):

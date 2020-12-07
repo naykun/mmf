@@ -216,7 +216,9 @@ class ProjectionEmbedding(nn.Module):
 
 
 class VisionSpatialEmbedding(nn.Module):
-    def __init__(self, module, feat_dim, pos_dim, hidden_size, hidden_dropout_prob, **kwargs):
+    def __init__(
+        self, module, feat_dim, pos_dim, hidden_size, hidden_dropout_prob, **kwargs
+    ):
         super().__init__()
         if module == "linear":
             self.out_dim = hidden_size
@@ -255,6 +257,7 @@ class VisionSpatialEmbedding(nn.Module):
 
         output = self.dropout(output)
         return output
+
 
 class ImageFeatureEmbedding(nn.Module):
     """
@@ -499,8 +502,7 @@ class BertVisioLinguisticEmbeddings(BertEmbeddings):
 
 
 class SAEmbedding(nn.Module):
-    """Encoder block implementation in MCAN https://arxiv.org/abs/1906.10770
-    """
+    """Encoder block implementation in MCAN https://arxiv.org/abs/1906.10770"""
 
     def __init__(self, hidden_dim: int, embedding_dim: int, **kwargs):
         super().__init__()
@@ -542,8 +544,7 @@ class SAEmbedding(nn.Module):
 
 
 class SGAEmbedding(nn.Module):
-    """Decoder block implementation in MCAN https://arxiv.org/abs/1906.10770
-    """
+    """Decoder block implementation in MCAN https://arxiv.org/abs/1906.10770"""
 
     def __init__(self, embedding_dim: int, **kwargs):
         super().__init__()
@@ -581,8 +582,7 @@ class SGAEmbedding(nn.Module):
 
 
 class CBNEmbedding(nn.Module):
-    """MoVie bottleneck layers from https://arxiv.org/abs/2004.11883
-    """
+    """MoVie bottleneck layers from https://arxiv.org/abs/2004.11883"""
 
     def __init__(self, embedding_dim: int, **kwargs):
         super().__init__()
@@ -666,6 +666,7 @@ class TwoBranchEmbedding(nn.Module):
 
         return x_sga, x_cbn
 
+
 class SinusoidalPositionalEmbedding(nn.Embedding):
     """This module produces sinusoidal positional embeddings of any length."""
 
@@ -681,7 +682,10 @@ class SinusoidalPositionalEmbedding(nn.Embedding):
         """
         n_pos, dim = out.shape
         position_enc = np.array(
-            [[pos / np.power(10000, 2 * (j // 2) / dim) for j in range(dim)] for pos in range(n_pos)]
+            [
+                [pos / np.power(10000, 2 * (j // 2) / dim) for j in range(dim)]
+                for pos in range(n_pos)
+            ]
         )
         out.requires_grad = False  # set early to avoid an error in pytorch-1.8+
         sentinel = dim // 2 if dim % 2 == 0 else (dim // 2) + 1
@@ -695,8 +699,12 @@ class SinusoidalPositionalEmbedding(nn.Embedding):
         """Input is expected to be of size [bsz x seqlen]."""
         bsz, seq_len = input_ids.shape[:2]
         if use_cache:
-            positions = input_ids.data.new(1, 1).fill_(seq_len - 1)  # called before slicing
+            positions = input_ids.data.new(1, 1).fill_(
+                seq_len - 1
+            )  # called before slicing
         else:
             # starts at 0, ends at 1-seq_len
-            positions = torch.arange(seq_len, dtype=torch.long, device=self.weight.device)
+            positions = torch.arange(
+                seq_len, dtype=torch.long, device=self.weight.device
+            )
         return super().forward(positions)

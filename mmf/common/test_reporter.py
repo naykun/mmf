@@ -124,7 +124,15 @@ class TestReporter(Dataset):
         return self.current_dataset[idx]
 
     def add_to_report(self, report, model):
-        keys = ["id", "question_id", "image_id", "context_tokens", "captions", "scores","cross_attention"]
+        keys = [
+            "id",
+            "question_id",
+            "image_id",
+            "context_tokens",
+            "captions",
+            "scores",
+            "cross_attention",
+        ]
         for key in keys:
             report = self.reshape_and_gather(report, key)
 

@@ -27,7 +27,10 @@ from transformers.models.bert.modeling_bert import (
     BertPreTrainedModel,
     BertSelfOutput,
 )
+
+
 BertLayerNorm = torch.nn.LayerNorm
+
 
 class BertSelfAttention(nn.Module):
     def __init__(self, config):

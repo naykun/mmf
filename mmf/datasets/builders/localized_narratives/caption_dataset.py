@@ -1,11 +1,12 @@
 from abc import ABC
-import torch
-import numpy as np
 
+import numpy as np
+import torch
 from mmf.common.sample import Sample
 from mmf.common.typings import MMFDatasetConfigType
 from mmf.datasets.builders.localized_narratives.database import (
-    LocalizedNarrativesAnnotationDatabase, BboxAlignedLocalizedNarrativesAnnotationDatabase
+    BboxAlignedLocalizedNarrativesAnnotationDatabase,
+    LocalizedNarrativesAnnotationDatabase,
 )
 from mmf.datasets.mmf_dataset import MMFDataset
 from mmf.utils.distributed import byte_tensor_to_object, object_to_byte_tensor
@@ -29,7 +30,7 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
             if image_info_0 and "image_id" in image_info_0.keys():
                 image_info_0["feature_path"] = image_info_0["image_id"]
                 image_info_0.pop("image_id")
-            self.transformer_bbox_processor(features['image_info_0'])
+            self.transformer_bbox_processor(features["image_info_0"])
             current_sample.update(features)
 
         # breakpoint()
@@ -37,7 +38,11 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
         current_sample.update(processed_traces)
 
         processed_caption = self.caption_processor(
-            {"timed_caption": sample_info["timed_caption"], "bbox_attend_scores": image_info_0['bbox_attend_scores']})
+            {
+                "timed_caption": sample_info["timed_caption"],
+                "bbox_attend_scores": image_info_0["bbox_attend_scores"],
+            }
+        )
         # should be a trace enhanced processor
         current_sample.update(processed_caption)
         current_sample.image_id = object_to_byte_tensor(sample_info["image_id"])
@@ -57,7 +62,14 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
             raw_caption = self.caption_processor.id2rawtoken(captions[idx])
             if isinstance(image_id, torch.Tensor):
                 image_id = image_id.item()
-            predictions.append({"image_id": image_id, "caption": caption, "cross_attention": cross_attention, "raw_caption" : raw_caption})
+            predictions.append(
+                {
+                    "image_id": image_id,
+                    "caption": caption,
+                    "cross_attention": cross_attention,
+                    "raw_caption": raw_caption,
+                }
+            )
 
         return predictions
 

@@ -299,6 +299,7 @@ class TensorboardLogger:
         for name, param in model.named_parameters():
             np_param = param.clone().cpu().data.numpy()
             self.summary_writer.add_histogram(name, np_param, iteration)
+
     def flush(self):
         if self._should_log_tensorboard():
             self.summary_writer.flush()

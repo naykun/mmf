@@ -1,7 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 from mmf.common.registry import registry
 from mmf.datasets.builders.localized_narratives.caption_dataset import (
-    TracedCaptionLocalizedNarrativesDataset)
+    TracedCaptionLocalizedNarrativesDataset,
+)
 from mmf.datasets.mmf_dataset_builder import MMFDatasetBuilder
 
 

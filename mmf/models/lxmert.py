@@ -39,7 +39,10 @@ from transformers.models.bert.modeling_bert import (
     BertSelfAttention,
     BertSelfOutput,
 )
+
+
 BertLayerNorm = torch.nn.LayerNorm
+
 
 class GeLU(nn.Module):
     def __init__(self):

@@ -23,8 +23,7 @@ BaseModelType = Type[BaseModel]
 
 
 class MMBTGridHMInterface(nn.Module):
-    """Interface for MMBT Grid for Hateful Memes.
-    """
+    """Interface for MMBT Grid for Hateful Memes."""
 
     def __init__(self, model: BaseModelType, config: mmf_typings.DictConfig):
         super().__init__()

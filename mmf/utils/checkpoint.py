@@ -391,15 +391,15 @@ class Checkpoint:
     def _get_vcs_fields(self):
         """Returns a dict with git fields of the current repository
 
-           To reproduce an experiment directly from a checkpoint
+        To reproduce an experiment directly from a checkpoint
 
-           1) Export `config` key as a yaml
-           2) Clone repository and checkout at given commit on given branch
-           3) Any local change (diff) while running the experiment is stored
-              in the value with key `git/diff`, output the diff to a `path.diff`
-              file and apply the patch to the current state by simply
+        1) Export `config` key as a yaml
+        2) Clone repository and checkout at given commit on given branch
+        3) Any local change (diff) while running the experiment is stored
+           in the value with key `git/diff`, output the diff to a `path.diff`
+           file and apply the patch to the current state by simply
 
-                           `patch -p0 < path.diff`
+                        `patch -p0 < path.diff`
         """
 
         return {
