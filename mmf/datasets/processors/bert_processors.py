@@ -285,6 +285,7 @@ class TracedBertTokenizer(BaseProcessor):
     def __init__(self, config, *args, **kwargs):
         self._max_seq_length = config.max_seq_length
         self.delta = config.delta
+        self.reverse = config.reverse
 
     def __call__(self, image_info_0, sample_info):
         h, w = (image_info_0["image_height"], image_info_0["image_width"])
@@ -316,6 +317,8 @@ class TracedBertTokenizer(BaseProcessor):
 
     def _trancate(self, boxes):
         boxes = boxes[: self._max_seq_length]
+        if self.reverse:
+            boxes.reverse()
         num_boxes = len(boxes)
         appendix = [[0.0] * 5] * (self._max_seq_length - num_boxes)
         boxes += appendix

@@ -49,8 +49,6 @@ class TracedEncoderDecoder(BaseModel):
         if self.config.image_feature_processor.type == "spatial":
             bbox_feature = sample_list["image_feature_0"]
             spatial_feature = sample_list["image_info_0"]["bbox"]
-
-            # maybe positional encoder later
             inputs_embeds = self.image_feature_module(bbox_feature, spatial_feature)
         else:
             bbox_feature = sample_list["image_feature_0"]

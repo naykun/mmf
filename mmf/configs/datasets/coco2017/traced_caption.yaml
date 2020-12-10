@@ -45,4 +45,5 @@ dataset_config:
         params:
           max_seq_length: 64
           delta: 0.1
+          reverse: false
 

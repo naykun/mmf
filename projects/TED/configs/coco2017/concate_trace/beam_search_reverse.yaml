@@ -1,0 +1,37 @@
+includes:
+- ./caption_coco2017.yaml
+
+dataset_config:
+  caption_coco2017:
+    processors:
+      trace_bbox_processor:
+        type: spatial_trace_tokenizer
+        params:
+          reverse: true
+
+
+model_config:
+  traced_encoder_decoder:
+    inference: 
+      type: beam_search
+      args: 
+        num_beams: 5
+        max_length: 128
+        early_stopping: true
+        eos_token_id: 0
+        num_return_sequences: 1
+        no_repeat_ngram_size: 3
+      return_attention: true
+    image_feature_processor:
+      type: spatial
+      params:
+        module: linear
+        feat_dim: 2048
+        pos_dim: 5
+        hidden_size: 768
+        hidden_dropout_prob: 0.1
+
+evaluation:
+  metrics:
+  - traced_bert_caption_bleu4
+
