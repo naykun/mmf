@@ -53,6 +53,8 @@ class TracedEncoderDecoder(BaseModel):
         else:
             bbox_feature = sample_list["image_feature_0"]
             inputs_embeds = self.image_feature_module(bbox_feature)
+        if hasattr(self.config, "no_vision") and self.config.no_vision:
+            inputs_embeds = inputs_embeds * 0
         batch_size = inputs_embeds.shape[0]
         if self.config.concate_trace:
             trace_boxes = sample_list["trace_boxes"]
