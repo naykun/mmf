@@ -230,12 +230,18 @@ def infer_init_method(config):
             "OMPI_COMM_WORLD_LOCAL_SIZE",
         ]
     ):
+        world_size = int(os.environ['OMPI_COMM_WORLD_SIZE'])
+        local_world_size = int(os.environ['OMPI_COMM_LOCAL_WORLD_SIZE'])
+        world_rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
+        local_rank = int(os.environ['OMPI_COMM_WORLD_LOCAL_RANK'])
+        master_ip = os.environ['MASTER_ADDR']
+        master_port = os.environ['MASTER_PORT']
+        nccl_socket_ifname = os.environ['NCCL_SOCKET_IFNAME']
+        master_uri = "tcp://%s:%s" % (os.environ['MASTER_ADDR'], os.environ['MASTER_PORT'])
         config.distributed.backend = "nccl"
-        config.distributed.init_method = "tcp://{host}:{port}".format(
-            host=get_master_ip(), port=config.distributed.port
-        )
-        config.distributed.world_size = ompi_size()
-        config.distributed.rank = ompi_rank()
+        config.distributed.init_method = master_uri
+        config.distributed.world_size = world_size
+        config.distributed.rank = world_rank
 
     # support torch.distributed.launch
     if all(
