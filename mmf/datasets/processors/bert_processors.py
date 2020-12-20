@@ -214,6 +214,9 @@ class TracedBertTokenizer(MaskedTokenProcessor):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self._probability = 0
+        self.segment_reverse = (
+            config.segment_reverse if hasattr(config, "segment_reverse") else False
+        )
         registry.register("ln_caption_processor", self)
 
     def __call__(self, item):
@@ -226,6 +229,7 @@ class TracedBertTokenizer(MaskedTokenProcessor):
         token_attends = []
         # print(bbox_attend_scores.shape)
         # print(len(timed_caption))
+        seg_indices = []
         for i, word in enumerate(timed_caption):
             text = word["utterance"]
             # wired length mis-matching
@@ -233,6 +237,27 @@ class TracedBertTokenizer(MaskedTokenProcessor):
             token = self.tokenize(text)
             tokens += token
             token_attends += [attend] * len(token)
+            if "." in text:
+                seg_indices.append(len(tokens))
+
+        # guard for sentence without "."
+        if len(seg_indices) == 0 or seg_indices[-1] != len(tokens):
+            seg_indices.append(len(tokens))
+
+        if self.segment_reverse:
+            seg_start = [0] + seg_indices[:-1]
+            seg_end = seg_indices
+            seg_s_e = list(zip(seg_start, seg_end))
+            # print(seg_s_e)
+            tokens_segs = [tokens[s:e] for s, e in seg_s_e]
+            token_attends_segs = [token_attends[s:e] for s, e in seg_s_e]
+
+            tokens_segs.reverse()
+            token_attends_segs.reverse()
+
+            tokens = [token for seg in tokens_segs for token in seg]
+            token_attends = [attend for seg in token_attends_segs for attend in seg]
+            # import ipdb; ipdb.set_trace()
 
         tokens = tokens[: self._max_seq_length - 1]
         token_attends = token_attends[: self._max_seq_length - 1]
@@ -243,7 +268,7 @@ class TracedBertTokenizer(MaskedTokenProcessor):
     def _convert_to_indices(self, tokens, token_attends):
         tokens = [self._CLS_TOKEN] + tokens
         token_attends = [np.zeros_like(token_attends[0])] + token_attends
-        attend_length = len(token_attends[0])
+        # attend_length = len(token_attends[0])
         segment_ids = [0] * len(tokens)
 
         input_ids = self._tokenizer.convert_tokens_to_ids(tokens)
@@ -281,15 +306,19 @@ class TracedBertTokenizer(MaskedTokenProcessor):
 
 
 @registry.register_processor("spatial_trace_tokenizer")
-class TracedBertTokenizer(BaseProcessor):
+class SpatialTraceTokenizer(BaseProcessor):
     def __init__(self, config, *args, **kwargs):
         self._max_seq_length = config.max_seq_length
         self.delta = config.delta
         self.reverse = config.reverse
+        self.segment_reverse = (
+            config.segment_reverse if hasattr(config, "segment_reverse") else False
+        )
 
     def __call__(self, image_info_0, sample_info):
-        h, w = (image_info_0["image_height"], image_info_0["image_width"])
+        # h, w = (image_info_0["image_height"], image_info_0["image_width"])
         traces = [x for tr in sample_info["traces"] for x in tr]
+
         current_t = 0
         current_trace_window = []
         trace_boxes = []
@@ -301,10 +330,33 @@ class TracedBertTokenizer(BaseProcessor):
                     x1, y1 = points.min(axis=0) * (1 - self.delta)
                     x2, y2 = points.max(axis=0) * (1 + self.delta)
                     area = (x2 - x1) * (y2 - y1)
-                    trace_boxes.append([x1, y1, x2, y2, area])
+                    trace_boxes.append([x1, y1, x2, y2, area, t["t"]])
                     current_trace_window = []
             else:
                 current_trace_window.append([t["x"], t["y"]])
+        if self.segment_reverse:
+            timed_caption = sample_info["timed_caption"]
+            time_slot = []
+            for utter in timed_caption:
+                if "." in utter["utterance"]:
+                    time_slot.append(utter["end_time"])
+            segments = []
+            segment = []
+            seg_id = 0
+            for box in trace_boxes:
+                if seg_id < len(time_slot) and box[-1] > time_slot[seg_id]:
+                    seg_id += 1
+                    segments.append(segment)
+                    segment = []
+                else:
+                    segment.append(box[:-1])
+            if len(segment) > 0:
+                segments.append(segment)
+                segment = []
+            segments.reverse()
+            trace_boxes = [box for seg in segments for box in seg]
+        else:
+            trace_boxes = [box[:-1] for box in trace_boxes]
         trace_boxes, trace_boxes_mask, trace_boxes_seg_id = self._trancate(trace_boxes)
         trace_boxes = torch.tensor(trace_boxes, dtype=torch.float)
         trace_boxes_mask = torch.tensor(trace_boxes_mask, dtype=torch.long)
@@ -317,7 +369,7 @@ class TracedBertTokenizer(BaseProcessor):
 
     def _trancate(self, boxes):
         boxes = boxes[: self._max_seq_length]
-        if self.reverse:
+        if self.reverse and not self.segment_reverse:
             boxes.reverse()
         num_boxes = len(boxes)
         appendix = [[0.0] * 5] * (self._max_seq_length - num_boxes)
