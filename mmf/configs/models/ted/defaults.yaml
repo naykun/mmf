@@ -2,8 +2,9 @@ model_config:
     traced_encoder_decoder:
       losses:
       - type: caption_cross_entropy
-      bert_model_name: bert-base-uncased
+      base_model_name: bert-base-uncased
       training_head_type: pretraining
+      max_gen_length: 64
       visual_embedding_dim: 2048
       special_visual_initialize: true
       embedding_strategy: plain
@@ -19,7 +20,7 @@ model_config:
       # representation of CLS token after passing it through a dense layer
       pooler_strategy: default
       concate_trace: false
-      inference: 
+      inference:
         type: greedy
       image_feature_processor:
         type: projection
@@ -31,5 +32,5 @@ model_config:
         type: tracebox_encoder
         params:
           input_size: 5
-          hidden_size: 768 
+          hidden_size: 768
           num_positions: 64

@@ -1,13 +1,9 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+
 import torch
 from mmf.common.registry import registry
-from mmf.common.sample import SampleList
 from mmf.models.base_model import BaseModel
-from mmf.utils.build import (
-    build_classifier_layer,
-    build_encoder,
-    build_image_encoder,
-    build_text_encoder,
-)
+from mmf.utils.build import build_encoder, build_image_encoder
 from transformers import BertConfig, EncoderDecoderConfig, EncoderDecoderModel
 
 
@@ -24,17 +20,26 @@ class TracedEncoderDecoder(BaseModel):
     def build(self):
 
         # to be further set
-        config_encoder = BertConfig()
-        config_decoder = BertConfig()
         # breakpoint()
         self.image_feature_module = build_image_encoder(
             self.config.image_feature_processor, direct_features=True
         )
         if self.config.concate_trace:
             self.trace_feature_module = build_encoder(self.config.trace_feature_encoder)
-        self.encoderdecoder = EncoderDecoderModel.from_encoder_decoder_pretrained(
-            "bert-base-uncased", "bert-base-uncased"
-        )
+
+        if self.config.base_model_name == "bert-base-uncased":
+            self.encoderdecoder = EncoderDecoderModel.from_encoder_decoder_pretrained(
+                "bert-base-uncased", "bert-base-uncased"
+            )
+        elif self.config.base_model_name == "2layer-base":
+            config_encoder = BertConfig()
+            config_decoder = BertConfig()
+            config_encoder.num_hidden_layers = 2
+            config_decoder.num_hidden_layers = 2
+            self.codec_config = EncoderDecoderConfig.from_encoder_decoder_configs(
+                config_encoder, config_decoder
+            )
+            self.encoderdecoder = EncoderDecoderModel(config=self.codec_config)
         self.BOS_ID = 101
 
     def forward(self, sample_list, *args, **kwargs):
@@ -43,8 +48,8 @@ class TracedEncoderDecoder(BaseModel):
         decoder_input_ids = sample_list["input_ids"][:, :-1]
         # using default mask
         # target_mask = sample_list["input_mask"]
-        segment_ids = sample_list["segment_ids"]
-        token_attends = sample_list["token_attends"]
+        # segment_ids = sample_list["segment_ids"]
+        # token_attends = sample_list["token_attends"]
         other_kwargs = {}
         if self.config.image_feature_processor.type == "spatial":
             bbox_feature = sample_list["image_feature_0"]
@@ -113,7 +118,7 @@ class TracedEncoderDecoder(BaseModel):
                 generate_output = self.encoderdecoder.generate(
                     input_ids=None,
                     input_embeds=inputs_embeds,
-                    max_length=64,
+                    max_length=self.config.max_gen_length,
                     bos_token_id=self.BOS_ID,
                     decoder_start_token_id=self.BOS_ID,
                     **other_kwargs
