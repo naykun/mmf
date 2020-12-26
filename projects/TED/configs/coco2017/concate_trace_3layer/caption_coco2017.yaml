@@ -1,5 +1,5 @@
 includes:
-- ../../../../../mmf/configs/datasets/coco2017/traced_caption_dev.yaml
+- ../../../../../mmf/configs/datasets/coco2017/traced_caption.yaml
 
 model_config:
     traced_encoder_decoder:
