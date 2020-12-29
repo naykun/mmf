@@ -1,7 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import json
 from typing import List, NamedTuple
-# from memory_profiler import profile
+
 from mmf.datasets.databases.annotation_database import AnnotationDatabase
 import lmdb
 import pickle
@@ -51,7 +51,7 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
     def __init__(self, config, path, *args, **kwargs):
         super().__init__(config, path, *args, **kwargs)
 
-    @profile
+
     def load_annotation_db(self, path):
         # import ipdb; ipdb.set_trace()
         data = []
