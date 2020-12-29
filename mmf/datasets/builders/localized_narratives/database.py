@@ -1,9 +1,11 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import json
 from typing import List, NamedTuple
-
+# from memory_profiler import profile
 from mmf.datasets.databases.annotation_database import AnnotationDatabase
-
+import lmdb
+import pickle
+import os
 
 class TimedPoint(NamedTuple):
     x: float
@@ -49,14 +51,48 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
     def __init__(self, config, path, *args, **kwargs):
         super().__init__(config, path, *args, **kwargs)
 
+    @profile
     def load_annotation_db(self, path):
+        # import ipdb; ipdb.set_trace()
         data = []
-        with open(path) as f:
-            for line in f:
-                annotation = json.loads(line)
-                loc_narr = LocalizedNarrative(**annotation)
-                data.append(
-                    {
+        if path.endswith(".jsonl"):
+            self.store_type = "jsonl"
+            with open(path) as f:
+                for line in f:
+                    annotation = json.loads(line)
+                    loc_narr = LocalizedNarrative(**annotation)
+                    data.append(
+                        {
+                            "dataset_id": loc_narr.dataset_id,
+                            "image_id": loc_narr.image_id,
+                            "caption": loc_narr.caption,
+                            "feature_path": self._feature_path(
+                                loc_narr.dataset_id, loc_narr.image_id
+                            ),
+                            "timed_caption": loc_narr.timed_caption,
+                            "traces": loc_narr.traces,
+                        }
+                    )
+        elif path.endswith(".lmdb"):
+            self.store_type = "lmdb"
+            self.env = lmdb.open(
+                path,
+                subdir=os.path.isdir(path),
+                readonly=True,
+                lock=False,
+                readahead=False,
+                meminit=False,
+            )
+            with self.env.begin(write=False, buffers=True) as txn:
+                data = list(pickle.loads(txn.get(b"keys")))
+        self.data = data
+    def __getitem__(self, idx):
+        data = self.data[idx + self.start_idx]
+        if self.store_type == "lmdb":
+            with self.env.begin(write=False, buffers=True) as txn:
+                data = pickle.loads(txn.get(data))
+                loc_narr = LocalizedNarrative(**data)
+                data={
                         "dataset_id": loc_narr.dataset_id,
                         "image_id": loc_narr.image_id,
                         "caption": loc_narr.caption,
@@ -66,8 +102,8 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
                         "timed_caption": loc_narr.timed_caption,
                         "traces": loc_narr.traces,
                     }
-                )
-        self.data = data
+                # import ipdb; ipdb.set_trace()
+        return data
 
     def _feature_path(self, dataset_id, image_id):
         if "mscoco" in dataset_id.lower():
