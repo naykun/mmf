@@ -47,9 +47,9 @@ training:
   use_warmup: true
   warmup_factor: 0.2
   warmup_iterations: 1000
-  batch_size: 64
+  batch_size: 32
   lr_scheduler: true
-  num_workers: 0
+  num_workers: 2
   # Don't forget to update schedule_attributes if you update this
   max_updates: 88000
   find_unused_parameters: true

@@ -75,7 +75,9 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
                     )
         elif path.endswith(".lmdb"):
             self.store_type = "lmdb"
-            self.env = lmdb.open(
+            self.lmdb_path = path
+            self.lmdb_env = None
+            env = lmdb.open(
                 path,
                 subdir=os.path.isdir(path),
                 readonly=True,
@@ -83,13 +85,24 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
                 readahead=False,
                 meminit=False,
             )
-            with self.env.begin(write=False, buffers=True) as txn:
+            with env.begin(write=False, buffers=True) as txn:
                 data = list(pickle.loads(txn.get(b"keys")))
         self.data = data
+    def init_env(self):
+        self.lmdb_env = lmdb.open(
+            self.lmdb_path,
+            subdir=os.path.isdir(self.lmdb_path),
+            readonly=True,
+            lock=False,
+            readahead=False,
+            meminit=False,
+        )
     def __getitem__(self, idx):
         data = self.data[idx + self.start_idx]
         if self.store_type == "lmdb":
-            with self.env.begin(write=False, buffers=True) as txn:
+            if self.lmdb_env is None:
+                self.init_env()
+            with self.lmdb_env.begin(write=False, buffers=True) as txn:
                 data = pickle.loads(txn.get(data))
                 loc_narr = LocalizedNarrative(**data)
                 data={
