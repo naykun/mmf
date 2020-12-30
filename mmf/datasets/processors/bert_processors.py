@@ -217,6 +217,9 @@ class TracedBertTokenizer(MaskedTokenProcessor):
         self.segment_reverse = (
             config.segment_reverse if hasattr(config, "segment_reverse") else False
         )
+        self.sync_seg_reverse = (
+            config.sync_seg_reverse if hasattr(config, "sync_seg_reverse") else False
+        )
         registry.register("ln_caption_processor", self)
 
     def __call__(self, item):
@@ -243,8 +246,11 @@ class TracedBertTokenizer(MaskedTokenProcessor):
         # guard for sentence without "."
         if len(seg_indices) == 0 or seg_indices[-1] != len(tokens):
             seg_indices.append(len(tokens))
+        if self.sync_seg_reverse:
+            import random
 
-        if self.segment_reverse:
+            sync_reverse = random.random() > 0.5
+        if self.segment_reverse or (self.sync_seg_reverse and sync_reverse):
             seg_start = [0] + seg_indices[:-1]
             seg_end = seg_indices
             seg_s_e = list(zip(seg_start, seg_end))
@@ -263,6 +269,8 @@ class TracedBertTokenizer(MaskedTokenProcessor):
         token_attends = token_attends[: self._max_seq_length - 1]
 
         output = self._convert_to_indices(tokens, token_attends)
+        if self.sync_seg_reverse:
+            output["sync_reverse"] = sync_reverse
         return output
 
     def _convert_to_indices(self, tokens, token_attends):
@@ -314,8 +322,11 @@ class SpatialTraceTokenizer(BaseProcessor):
         self.segment_reverse = (
             config.segment_reverse if hasattr(config, "segment_reverse") else False
         )
+        self.sync_seg_reverse = (
+            config.sync_seg_reverse if hasattr(config, "sync_seg_reverse") else False
+        )
 
-    def __call__(self, image_info_0, sample_info):
+    def __call__(self, image_info_0, sample_info, sync_reverse=False):
         # h, w = (image_info_0["image_height"], image_info_0["image_width"])
         traces = [x for tr in sample_info["traces"] for x in tr]
 
@@ -334,7 +345,7 @@ class SpatialTraceTokenizer(BaseProcessor):
                     current_trace_window = []
             else:
                 current_trace_window.append([t["x"], t["y"]])
-        if self.segment_reverse:
+        if self.segment_reverse or (self.sync_seg_reverse and sync_reverse):
             timed_caption = sample_info["timed_caption"]
             time_slot = []
             for utter in timed_caption:

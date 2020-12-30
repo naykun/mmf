@@ -34,8 +34,6 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
             current_sample.update(features)
 
         # breakpoint()
-        processed_traces = self.trace_bbox_processor(image_info_0, sample_info)
-        current_sample.update(processed_traces)
 
         processed_caption = self.caption_processor(
             {
@@ -45,6 +43,10 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
         )
         # should be a trace enhanced processor
         current_sample.update(processed_caption)
+        # import ipdb; ipdb.set_trace()
+        # print(processed_caption.get("sync_reverse",False))
+        processed_traces = self.trace_bbox_processor(image_info_0, sample_info, processed_caption.get("sync_reverse",False))
+        current_sample.update(processed_traces)
         current_sample.image_id = object_to_byte_tensor(sample_info["image_id"])
         current_sample.feature_path = sample_info["feature_path"]
 
