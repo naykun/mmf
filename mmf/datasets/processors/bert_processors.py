@@ -220,6 +220,9 @@ class TracedBertTokenizer(MaskedTokenProcessor):
         self.sync_seg_reverse = (
             config.sync_seg_reverse if hasattr(config, "sync_seg_reverse") else False
         )
+        self.sync_seg_shuffle = (
+            config.sync_seg_shuffle if hasattr(config, "sync_seg_shuffle") else False
+        )
         registry.register("ln_caption_processor", self)
 
     def __call__(self, item):
@@ -258,8 +261,14 @@ class TracedBertTokenizer(MaskedTokenProcessor):
             tokens_segs = [tokens[s:e] for s, e in seg_s_e]
             token_attends_segs = [token_attends[s:e] for s, e in seg_s_e]
 
-            tokens_segs.reverse()
-            token_attends_segs.reverse()
+            if self.sync_seg_shuffle:
+                shuffle_order = list(range(len(tokens_segs)))
+                random.shuffle(shuffle_order)
+                tokens_segs = [tokens_segs[i] for i in shuffle_order]
+                token_attends_segs = [token_attends_segs[i] for i in shuffle_order]
+            else:
+                tokens_segs.reverse()
+                token_attends_segs.reverse()
 
             tokens = [token for seg in tokens_segs for token in seg]
             token_attends = [attend for seg in token_attends_segs for attend in seg]
@@ -271,6 +280,10 @@ class TracedBertTokenizer(MaskedTokenProcessor):
         output = self._convert_to_indices(tokens, token_attends)
         if self.sync_seg_reverse:
             output["sync_reverse"] = sync_reverse
+            if self.sync_seg_shuffle and sync_reverse:
+                output["sync_shuffle_order"] = shuffle_order
+            else:
+                output["sync_shuffle_order"] = None
         return output
 
     def _convert_to_indices(self, tokens, token_attends):
@@ -326,7 +339,9 @@ class SpatialTraceTokenizer(BaseProcessor):
             config.sync_seg_reverse if hasattr(config, "sync_seg_reverse") else False
         )
 
-    def __call__(self, image_info_0, sample_info, sync_reverse=False):
+    def __call__(
+        self, image_info_0, sample_info, sync_reverse=False, sync_shuffle_order=None
+    ):
         # h, w = (image_info_0["image_height"], image_info_0["image_width"])
         traces = [x for tr in sample_info["traces"] for x in tr]
 
@@ -364,7 +379,16 @@ class SpatialTraceTokenizer(BaseProcessor):
             if len(segment) > 0:
                 segments.append(segment)
                 segment = []
-            segments.reverse()
+            if sync_shuffle_order is not None:
+                max_segments_id = len(segments) - 1
+                # print(len_segments)
+                # print(sync_shuffle_order)
+                if max_segments_id >= 0:
+                    segments = [
+                        segments[min(i, max_segments_id)] for i in sync_shuffle_order
+                    ]
+            else:
+                segments.reverse()
             trace_boxes = [box for seg in segments for box in seg]
         else:
             trace_boxes = [box[:-1] for box in trace_boxes]
