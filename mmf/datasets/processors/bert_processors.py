@@ -338,6 +338,7 @@ class SpatialTraceTokenizer(BaseProcessor):
         self.sync_seg_reverse = (
             config.sync_seg_reverse if hasattr(config, "sync_seg_reverse") else False
         )
+        self.time_window = config.time_window if hasattr(config, "time_window") else 0.4
 
     def __call__(
         self, image_info_0, sample_info, sync_reverse=False, sync_shuffle_order=None
@@ -350,7 +351,7 @@ class SpatialTraceTokenizer(BaseProcessor):
         trace_boxes = []
         for t in traces:
             if t["t"] > current_t:
-                current_t += 0.4
+                current_t += self.time_window
                 if len(current_trace_window) > 0:
                     points = np.array(current_trace_window)
                     x1, y1 = points.min(axis=0) * (1 - self.delta)
