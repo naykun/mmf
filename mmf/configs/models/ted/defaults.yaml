@@ -12,6 +12,7 @@ model_config:
       output_attentions: false
       output_hidden_states: false
       random_initialize: false
+      loop_contrastive: false
       freeze_base: false
       finetune_lr_multiplier: 1
       num_layers: 12

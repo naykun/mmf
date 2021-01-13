@@ -233,8 +233,10 @@ class TracedBertTokenizer(MaskedTokenProcessor):
         attend_len = bbox_attend_scores.shape[0]
         tokens = []
         token_attends = []
+        seg_ids = None
         # print(bbox_attend_scores.shape)
         # print(len(timed_caption))
+
         seg_indices = []
         for i, word in enumerate(timed_caption):
             text = word["utterance"]
@@ -245,14 +247,15 @@ class TracedBertTokenizer(MaskedTokenProcessor):
             token_attends += [attend] * len(token)
             if "." in text:
                 seg_indices.append(len(tokens))
-
         # guard for sentence without "."
         if len(seg_indices) == 0 or seg_indices[-1] != len(tokens):
             seg_indices.append(len(tokens))
+
         if self.sync_seg_reverse:
             import random
 
             sync_reverse = random.random() > 0.5
+
         if self.segment_reverse or (self.sync_seg_reverse and sync_reverse):
             seg_start = [0] + seg_indices[:-1]
             seg_end = seg_indices
@@ -272,12 +275,17 @@ class TracedBertTokenizer(MaskedTokenProcessor):
 
             tokens = [token for seg in tokens_segs for token in seg]
             token_attends = [attend for seg in token_attends_segs for attend in seg]
+            # start from 1
+            seg_ids = [i + 1 for i, seg in enumerate(tokens_segs) for token in seg]
             # import ipdb; ipdb.set_trace()
 
         tokens = tokens[: self._max_seq_length - 1]
         token_attends = token_attends[: self._max_seq_length - 1]
+        if seg_ids is None:
+            seg_ids = [1] * len(tokens)
+        seg_ids = seg_ids[: self._max_seq_length - 1]
 
-        output = self._convert_to_indices(tokens, token_attends)
+        output = self._convert_to_indices(tokens, token_attends, seg_ids)
         if self.sync_seg_reverse:
             output["sync_reverse"] = sync_reverse
             if self.sync_seg_shuffle and sync_reverse:
@@ -286,11 +294,11 @@ class TracedBertTokenizer(MaskedTokenProcessor):
                 output["sync_shuffle_order"] = None
         return output
 
-    def _convert_to_indices(self, tokens, token_attends):
+    def _convert_to_indices(self, tokens, token_attends, seg_ids):
         tokens = [self._CLS_TOKEN] + tokens
         token_attends = [np.zeros_like(token_attends[0])] + token_attends
         # attend_length = len(token_attends[0])
-        segment_ids = [0] * len(tokens)
+        segment_ids = [0] + seg_ids
 
         input_ids = self._tokenizer.convert_tokens_to_ids(tokens)
         input_mask = [1] * len(input_ids)
@@ -391,25 +399,33 @@ class SpatialTraceTokenizer(BaseProcessor):
             else:
                 segments.reverse()
             trace_boxes = [box for seg in segments for box in seg]
+            seg_id = [i + 1 for i, seg in enumerate(segments) for box in seg]
         else:
             trace_boxes = [box[:-1] for box in trace_boxes]
-        trace_boxes, trace_boxes_mask, trace_boxes_seg_id = self._trancate(trace_boxes)
+            seg_id = [1] * len(trace_boxes)
+        trace_boxes, trace_boxes_mask, boxes_seg_id, contr_seg_id = self._trancate(
+            trace_boxes, seg_id
+        )
         trace_boxes = torch.tensor(trace_boxes, dtype=torch.float)
         trace_boxes_mask = torch.tensor(trace_boxes_mask, dtype=torch.long)
-        trace_boxes_seg_id = torch.tensor(trace_boxes_seg_id, dtype=torch.long)
+        boxes_seg_id = torch.tensor(boxes_seg_id, dtype=torch.long)
+        contr_seg_id = torch.tensor(contr_seg_id, dtype=torch.long)
         return {
             "trace_boxes": trace_boxes,
             "trace_boxes_mask": trace_boxes_mask,
-            "trace_boxes_seg_id": trace_boxes_seg_id,
+            "trace_boxes_seg_id": boxes_seg_id,
+            "trace_boxes_loop_contrastive_seg_id": contr_seg_id,
         }
 
-    def _trancate(self, boxes):
+    def _trancate(self, boxes, seg_id):
         boxes = boxes[: self._max_seq_length]
+        seg_id = seg_id[: self._max_seq_length]
         if self.reverse and not self.segment_reverse:
             boxes.reverse()
         num_boxes = len(boxes)
         appendix = [[0.0] * 5] * (self._max_seq_length - num_boxes)
         boxes += appendix
         box_mask = [1] * num_boxes + [0] * (self._max_seq_length - num_boxes)
+        loop_contrastive_seg_id = seg_id + [0] * (self._max_seq_length - num_boxes)
         box_seg_id = [1] * self._max_seq_length
-        return boxes, box_mask, box_seg_id
+        return boxes, box_mask, box_seg_id, loop_contrastive_seg_id

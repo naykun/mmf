@@ -40,6 +40,10 @@ class TracedEncoderDecoder(BaseModel):
                 config_encoder, config_decoder
             )
             self.encoderdecoder = EncoderDecoderModel(config=self.codec_config)
+        if self.config.loop_contrastive:
+            self.trace_caption_contrastive = TraceCaptionContrastiveModel(
+                self.config.tc_contrastive_aggregate_method
+            )
         self.BOS_ID = 101
 
     def forward(self, sample_list, *args, **kwargs):
@@ -79,13 +83,13 @@ class TracedEncoderDecoder(BaseModel):
                     "position_ids": position_ids,
                 }
             )
-        # import ipdb; ipdb.set_trace()
 
         if self.training:
             decoder_output = self.encoderdecoder(
                 decoder_input_ids=decoder_input_ids,
                 inputs_embeds=inputs_embeds,
                 output_attentions=True,
+                output_hidden_states=True,
                 return_dict=True,
                 **other_kwargs
             )
@@ -104,6 +108,16 @@ class TracedEncoderDecoder(BaseModel):
             model_output["scores"] = logits
             model_output["cross_attentions"] = cross_attentions
             sample_list["targets"] = sample_list["input_ids"][:, 1:]
+
+            if self.config.loop_contrastive:
+                cap_feat, vision_trace_feat = self.trace_caption_contrastive(
+                    decoder_output["encoder_hidden_states"][-1],
+                    sample_list["trace_boxes_loop_contrastive_seg_id"],
+                    decoder_output["decoder_hidden_states"][-1],
+                    sample_list["segment_ids"],
+                )
+                model_output["contrastive_a"] = cap_feat
+                model_output["contrastive_b"] = vision_trace_feat
         else:
             if self.config.inference.type == "beam_search":
                 generate_output = self.encoderdecoder.generate(
@@ -169,3 +183,213 @@ class TracedEncoderDecoder(BaseModel):
             # breakpoint()
 
         return model_output
+
+
+class TraceCaptionContrastiveModel(torch.nn.Module):
+    def __init__(self, aggregate_method):
+        super().__init__()
+        self.vision_trace_aggregator = VisionTraceAggregator(aggregate_method)
+        self.caption_aggregator = CaptionAggregator(aggregate_method)
+
+    def forward(self, vision_trace_feat, vision_trace_mask, caption_feat, caption_mask):
+
+        # import ipdb; ipdb.set_trace()
+        # caption information aggregate
+        # generate a feat list [bs, Tensor(num_sentences, feat)]
+        caption_feats = self.caption_aggregator(caption_feat, caption_mask)
+
+        # vision & trace infomation aggregate
+        # generate a feat list [bs, Tensor(num_trace_segment, feat)]
+        vision_trace_feats = self.vision_trace_aggregator(
+            vision_trace_feat, vision_trace_mask
+        )
+
+        # in batch permutation?
+        # move to loss part
+
+        return caption_feats, vision_trace_feats
+
+
+class VisionTraceAggregator(torch.nn.Module):
+    def __init__(self, aggregate_method, hidden_size=768):
+        super().__init__()
+        self.aggregate_method = aggregate_method
+        if aggregate_method == "maxpool":
+            self.aggregator = lambda x: torch.max(x, dim=1)
+        elif aggregate_method == "meanpool":
+            self.aggregator = lambda x: torch.mean(x, dim=0)
+        elif aggregate_method == "lstm":
+            self.aggregator = torch.nn.LSTM(
+                hidden_size, hidden_size, 2, bidirectional=True
+            )
+        elif aggregate_method == "transformer":
+            encoder_layer = torch.nn.TransformerEncoderLayer(
+                d_model=hidden_size, nhead=8
+            )
+            self.aggregator = torch.nn.TransformerEncoder(
+                encoder_layer=encoder_layer, num_layers=2
+            )
+
+        self.vt_merge = torch.nn.Linear(2 * hidden_size, hidden_size)
+
+    def forward(self, vision_trace_feat, vision_trace_mask):
+        vision_feat = vision_trace_feat[:, :100].mean(axis=1)
+        trace_feat = vision_trace_feat[:, 100:]
+        trace_mask = vision_trace_mask
+        max_seg_id = trace_mask.max().item()
+        feat_list = []
+        section_sizes = []
+        # import ipdb; ipdb.set_trace()
+        for seg_id in range(1, max_seg_id + 1):
+            mask = trace_mask == seg_id
+            section_sizes.append(mask.sum(axis=1))
+        # [bs, max_seg_id] the element is the seq_length of segment
+        # with seg_id in current instance
+        section_sizes = torch.stack(section_sizes).t()
+        batch_section_count = (section_sizes > 0).sum(axis=1)
+        # [bs * num(seglen > 0)]
+        section_sizes_flatten_wo_0 = section_sizes[section_sizes > 0]
+
+        trace_feat = trace_feat[trace_mask > 0]
+
+        # assert caption_feat.shape[0] == sum(section_sizes)
+        # (num_total_sentences, Tensor(sentence_len, feat_dim))
+        debatched_trace_feat = torch.split(
+            trace_feat, section_sizes_flatten_wo_0.tolist()
+        )
+        if self.aggregate_method == "maxpool":
+            # [num_total_sentences, sentence_max_len, feat_dim]
+            debatched_trace_feat = torch.nn.utils.rnn.pad_sequence(
+                debatched_trace_feat, batch_first=True
+            )
+            feat_aggs, _ = self.aggregator(debatched_trace_feat)
+        elif self.aggregate_method == "meanpool":
+            feat_aggs = []
+            for feat in debatched_trace_feat:
+                feat_agg = self.aggregator(feat)
+                feat_aggs.append(feat_agg)
+            feat_aggs = torch.stack(feat_aggs)
+        elif self.aggregate_method == "lstm":
+            debatched_trace_feat = torch.nn.utils.rnn.pad_sequence(debatched_trace_feat)
+            packed_trace_feat = torch.nn.utils.rnn.pack_padded_sequence(
+                debatched_trace_feat,
+                section_sizes_flatten_wo_0.tolist(),
+                enforce_sorted=False,
+            )
+            output, (h_n, c_n) = self.aggregator(packed_trace_feat)
+            h_n = h_n.view(2, 2, section_sizes_flatten_wo_0.shape[0], 768)
+            feat_aggs = h_n[-1].squeeze(0).mean(0)
+        elif self.aggregate_method == "transformer":
+            debatched_trace_feat = torch.nn.utils.rnn.pad_sequence(debatched_trace_feat)
+            max_seg_len, batch, _ = debatched_trace_feat.shape
+            mask = torch.arange(
+                0, max_seg_len, dtype=torch.long, device=trace_feat.device
+            ).repeat(batch)
+            mask = (
+                mask < section_sizes_flatten_wo_0.repeat_interleave(max_seg_len)
+            ).view(batch, max_seg_len)
+            mask = ~mask
+            # padding mask not working
+            h = self.aggregator(debatched_trace_feat, None, mask).transpose(0, 1)
+            feat_aggs = h.mean(axis=1)
+        vision_feat_expand = []
+        for v_, size in zip(vision_feat, batch_section_count.tolist()):
+            vision_feat_expand.append(v_.repeat(size, 1))
+        vision_feat_expand = torch.cat(vision_feat_expand)
+
+        # import ipdb; ipdb.set_trace()
+        vt_feat_aggs = torch.cat([feat_aggs, vision_feat_expand], dim=1)
+        vt_feat_aggs = self.vt_merge(vt_feat_aggs)
+
+        feat_list = torch.split(vt_feat_aggs, batch_section_count.tolist())
+
+        return feat_list
+
+
+class CaptionAggregator(torch.nn.Module):
+    def __init__(self, aggregate_method, hidden_size=768):
+        super().__init__()
+        self.aggregate_method = aggregate_method
+        if aggregate_method == "maxpool":
+            self.aggregator = lambda x: torch.max(x, dim=1)
+        elif aggregate_method == "meanpool":
+            self.aggregator = lambda x: torch.mean(x, dim=0)
+        elif aggregate_method == "lstm":
+            self.aggregator = torch.nn.LSTM(
+                hidden_size, hidden_size, 2, bidirectional=True
+            )
+        elif aggregate_method == "transformer":
+            encoder_layer = torch.nn.TransformerEncoderLayer(
+                d_model=hidden_size, nhead=8
+            )
+            self.aggregator = torch.nn.TransformerEncoder(
+                encoder_layer=encoder_layer, num_layers=2
+            )
+
+    def forward(self, caption_feat, caption_mask):
+        # remove bos
+        # import ipdb; ipdb.set_trace()
+        caption_mask = caption_mask[:, 1:]
+        max_seg_id = caption_mask.max().item()
+        feat_list = []
+        section_sizes = []
+        for seg_id in range(1, max_seg_id + 1):
+            mask = caption_mask == seg_id
+            section_sizes.append(mask.sum(axis=1))
+        # [bs, max_seg_id] the element is the seq_length of segment
+        # with seg_id in current instance
+        section_sizes = torch.stack(section_sizes).t()
+        batch_section_count = (section_sizes > 0).sum(axis=1)
+        # [bs * num(seglen > 0)]
+        section_sizes_flatten_wo_0 = section_sizes[section_sizes > 0]
+
+        caption_feat = caption_feat[caption_mask > 0]
+
+        # assert caption_feat.shape[0] == sum(section_sizes)
+        # (num_total_sentences, Tensor(sentence_len, feat_dim))
+        debatched_caption_feat = torch.split(
+            caption_feat, section_sizes_flatten_wo_0.tolist()
+        )
+        if self.aggregate_method == "maxpool":
+            # [num_total_sentences, sentence_max_len, feat_dim]
+            debatched_caption_feat = torch.nn.utils.rnn.pad_sequence(
+                debatched_caption_feat, batch_first=True
+            )
+            feat_aggs, _ = self.aggregator(debatched_caption_feat)
+        elif self.aggregate_method == "meanpool":
+            feat_aggs = []
+            for feat in debatched_caption_feat:
+                feat_agg = self.aggregator(feat)
+                feat_aggs.append(feat_agg)
+            feat_aggs = torch.stack(feat_aggs)
+        elif self.aggregate_method == "lstm":
+            debatched_caption_feat = torch.nn.utils.rnn.pad_sequence(
+                debatched_caption_feat
+            )
+            packed_caption_feat = torch.nn.utils.rnn.pack_padded_sequence(
+                debatched_caption_feat,
+                section_sizes_flatten_wo_0.tolist(),
+                enforce_sorted=False,
+            )
+            output, (h_n, c_n) = self.aggregator(packed_caption_feat)
+            h_n = h_n.view(2, 2, section_sizes_flatten_wo_0.shape[0], 768)
+            feat_aggs = h_n[-1].squeeze(0).mean(0)
+        elif self.aggregate_method == "transformer":
+            debatched_caption_feat = torch.nn.utils.rnn.pad_sequence(
+                debatched_caption_feat
+            )
+            max_sentence_len, batch, _ = debatched_caption_feat.shape
+            mask = torch.arange(
+                0, max_sentence_len, dtype=torch.long, device=caption_feat.device
+            ).repeat(batch)
+            mask = (
+                mask < section_sizes_flatten_wo_0.repeat_interleave(max_sentence_len)
+            ).view(batch, max_sentence_len)
+            mask = ~mask
+            # padding mask not working
+            h = self.aggregator(debatched_caption_feat, None, mask).transpose(0, 1)
+            feat_aggs = h.mean(axis=1)
+        # import ipdb; ipdb.set_trace()
+
+        feat_list = torch.split(feat_aggs, batch_section_count.tolist())
+        return feat_list

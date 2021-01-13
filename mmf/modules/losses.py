@@ -450,7 +450,7 @@ class AttentionSupervisionLoss(nn.Module):
 
 
 @registry.register_loss("ln_attention_supervision")
-class AttentionSupervisionLoss(nn.Module):
+class LnAttentionSupervisionLoss(nn.Module):
     """Loss for attention supervision. Used in case you want to make attentions
     similar to some particular values.
     """
@@ -496,6 +496,38 @@ class AttentionSupervisionLoss(nn.Module):
         # breakpoint()
         # Multiply average loss back with target size to get actual loss
         return loss * attention_supervision.size(1)
+
+
+@registry.register_loss("in_batch_contrastive")
+class ContrastiveInBatch(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, sample_list, model_output):
+        loss = 0.0
+        contr_a = model_output["contrastive_a"]
+        contr_b = model_output["contrastive_b"]
+        for a, b in zip(contr_a, contr_b):
+            # print(a.shape,b.shape, a.shape[0] == b.shape[0])
+            min_len = min(a.shape[0], b.shape[0])
+            a_ = a[:min_len]
+            b_ = b[:min_len]
+            a_ = a_.repeat(min_len, 1).unsqueeze(1)
+            b_ = b_.repeat_interleave(min_len, dim=0).unsqueeze(-1)
+            eye = torch.eye(min_len, dtype=torch.long, device=a_.device).flatten()
+            # import ipdb; ipdb.set_trace()
+            score = torch.bmm(a_, b_).squeeze()
+            if min_len > 1:
+                # import ipdb; ipdb.set_trace()
+                positive_score = score[eye == 1].exp().sum()
+                negative_score = score[eye == 0].exp().sum()
+            else:
+                positive_score = score.exp()
+                negative_score = 1.0
+            loss += -torch.log(positive_score / negative_score)
+            # print(loss)
+        contras_loss = loss / len(contr_a)
+        return contras_loss
 
 
 @registry.register_loss("weighted_softmax")
