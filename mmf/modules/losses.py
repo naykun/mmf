@@ -507,6 +507,7 @@ class ContrastiveInBatch(nn.Module):
         loss = 0.0
         contr_a = model_output["contrastive_a"]
         contr_b = model_output["contrastive_b"]
+        cnt = 0
         for a, b in zip(contr_a, contr_b):
             # print(a.shape,b.shape, a.shape[0] == b.shape[0])
             min_len = min(a.shape[0], b.shape[0])
@@ -514,6 +515,8 @@ class ContrastiveInBatch(nn.Module):
             b_ = b[:min_len]
             a_ = a_.repeat(min_len, 1).unsqueeze(1)
             b_ = b_.repeat_interleave(min_len, dim=0).unsqueeze(-1)
+            a_ = F.normalize(a_, p=2, dim=-1)
+            b_ = F.normalize(b_, p=2, dim=-1)
             eye = torch.eye(min_len, dtype=torch.long, device=a_.device).flatten()
             # import ipdb; ipdb.set_trace()
             score = torch.bmm(a_, b_).squeeze()
@@ -522,17 +525,21 @@ class ContrastiveInBatch(nn.Module):
                     # import ipdb; ipdb.set_trace()
                     positive_score = score[eye == 1].exp().sum()
                     negative_score = score[eye == 0].exp().sum()
+                    loss += -torch.log(
+                        positive_score / (positive_score + negative_score)
+                    )
+                    cnt += 1
+                    # print(
+                    #     positive_score,
+                    #     negative_score,
+                    #    -torch.log(positive_score / (positive_score + negative_score)),
+                    # )
                 else:
                     positive_score = score.exp()
-                    negative_score = 1.0
-                # print(
-                #     positive_score,
-                #     negative_score,
-                #     -torch.log(positive_score / negative_score),
-                # )
-                loss += -torch.log(positive_score / negative_score)
+                    negative_score = 0.0
+                # import ipdb; ipdb.set_trace()
                 # print(loss)
-        contras_loss = loss / len(contr_a)
+        contras_loss = loss / cnt
         return contras_loss
 
 

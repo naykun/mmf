@@ -7,7 +7,7 @@ model_config:
       base_model_name: 2layer-base
       max_gen_length: 225
       loop_contrastive: true
-      tc_contrastive_aggregate_method: maxpool
+      tc_contrastive_aggregate_method: transformer
       losses:
       - type: caption_cross_entropy
       - type: in_batch_contrastive
