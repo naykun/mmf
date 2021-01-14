@@ -502,6 +502,7 @@ class LnAttentionSupervisionLoss(nn.Module):
 class ContrastiveInBatch(nn.Module):
     def __init__(self):
         super().__init__()
+        self.contrastive_by_row = True
 
     def forward(self, sample_list, model_output):
         loss = 0.0
@@ -523,12 +524,37 @@ class ContrastiveInBatch(nn.Module):
             if min_len > 0:
                 if min_len > 1:
                     # import ipdb; ipdb.set_trace()
-                    positive_score = score[eye == 1].exp().sum()
-                    negative_score = score[eye == 0].exp().sum()
-                    loss += -torch.log(
-                        positive_score / (positive_score + negative_score)
-                    )
-                    cnt += 1
+                    if self.contrastive_by_row:
+                        positive_score = score[eye == 1].exp()
+                        negative_score_row = (
+                            score[eye == 0].exp().view(min_len - 1, min_len, -1).sum(0)
+                        )
+                        loss_row = -torch.log(
+                            positive_score / (positive_score + negative_score_row)
+                        )
+                        loss_row = loss_row.sum() / loss_row.size(0)
+                        negative_score_col = (
+                            score.view(min_len, min_len, -1)
+                            .transpose(0, 1)
+                            .contiguous()
+                            .view(min_len * min_len, -1)[eye == 0]
+                            .exp()
+                            .view(min_len - 1, min_len, -1)
+                            .sum(0)
+                        )
+                        loss_col = -torch.log(
+                            positive_score / (positive_score + negative_score_col)
+                        )
+                        loss_col = loss_col.sum() / loss_col.size(0)
+                        loss += (loss_row + loss_col) / 2.0
+                        cnt += 1
+                    else:
+                        positive_score = score[eye == 1].exp().sum()
+                        negative_score = score[eye == 0].exp().sum()
+                        loss += -torch.log(
+                            positive_score / (positive_score + negative_score)
+                        )
+                        cnt += 1
                     # print(
                     #     positive_score,
                     #     negative_score,
