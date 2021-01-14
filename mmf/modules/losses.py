@@ -521,9 +521,14 @@ class ContrastiveInBatch(nn.Module):
                 # import ipdb; ipdb.set_trace()
                 positive_score = score[eye == 1].exp().sum()
                 negative_score = score[eye == 0].exp().sum()
-            else:
+            elif min_len > 0:
                 positive_score = score.exp()
                 negative_score = 1.0
+            # print(
+            #     positive_score,
+            #     negative_score,
+            #     -torch.log(positive_score / negative_score),
+            # )
             loss += -torch.log(positive_score / negative_score)
             # print(loss)
         contras_loss = loss / len(contr_a)
