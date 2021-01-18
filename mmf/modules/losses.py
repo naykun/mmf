@@ -500,9 +500,10 @@ class LnAttentionSupervisionLoss(nn.Module):
 
 @registry.register_loss("in_batch_contrastive")
 class ContrastiveInBatch(nn.Module):
-    def __init__(self):
+    def __init__(self, temperature=1, contrastive_by_row=True):
         super().__init__()
-        self.contrastive_by_row = True
+        self.contrastive_by_row = contrastive_by_row
+        self.temperature = temperature
 
     def forward(self, sample_list, model_output):
         loss = 0.0
@@ -520,7 +521,7 @@ class ContrastiveInBatch(nn.Module):
             b_ = F.normalize(b_, p=2, dim=-1)
             eye = torch.eye(min_len, dtype=torch.long, device=a_.device).flatten()
             # import ipdb; ipdb.set_trace()
-            score = torch.bmm(a_, b_).squeeze()
+            score = torch.bmm(a_, b_).squeeze() / self.temperature
             if min_len > 0:
                 if min_len > 1:
                     # import ipdb; ipdb.set_trace()

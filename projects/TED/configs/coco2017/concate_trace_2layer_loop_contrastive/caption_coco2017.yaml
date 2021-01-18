@@ -11,6 +11,7 @@ model_config:
       losses:
       - type: caption_cross_entropy
       - type: in_batch_contrastive
+        temperature: 1
       # - type: ln_attention_supervision
       image_feature_processor:
         type: spatial
