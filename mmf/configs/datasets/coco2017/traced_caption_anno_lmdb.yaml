@@ -16,9 +16,9 @@ dataset_config:
       train:
       - localized_narratives/defaults/annotations/coco_train_localized_narratives.lmdb
       val:
-      - localized_narratives/defaults/annotations/coco_val_localized_narratives.jsonl
+      - localized_narratives/defaults/annotations/coco_val_localized_narratives.lmdb
       test:
-      - localized_narratives/defaults/annotations/coco_val_localized_narratives.jsonl
+      - localized_narratives/defaults/annotations/coco_val_localized_narratives.lmdb
     processors:
       caption_processor:
         type: traced_bert_tokenizer

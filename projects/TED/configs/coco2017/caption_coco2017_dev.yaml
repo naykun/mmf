@@ -1,5 +1,5 @@
 includes:
-  - ../../../../mmf/configs/datasets/coco2017/traced_caption_dev.yaml
+  - ../../../../mmf/configs/datasets/coco2017/traced_caption_anno_lmdb.yaml
 
 optimizer:
   type: adam_w
