@@ -3,9 +3,10 @@
 import json
 import os
 
-import numpy as np
+import coco_caption_eval
 
-import tools.scripts.coco.coco_caption_eval as coco_caption_eval
+
+# import numpy as np
 
 
 def print_metrics(res_metrics):
@@ -17,7 +18,8 @@ def print_metrics(res_metrics):
         "Bleu_4",
         "METEOR",
         "ROUGE_L",
-        # "SPICE",
+        "ROUGE_F1",
+        "SPICE",
         "CIDEr",
     ]
     print("\n\n**********\nFinal model performance:\n**********")
@@ -60,7 +62,7 @@ if __name__ == "__main__":
     # imdb = json.load(open(annotation_file,'r'))
 
     gts = []
-    with open(annotation_file, "r") as fin:
+    with open(annotation_file) as fin:
         for line in fin:
             info = json.loads(line)
             gts.append({"image_id": info["image_id"], "caption": info["caption"]})
