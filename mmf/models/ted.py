@@ -105,13 +105,16 @@ class TracedEncoderDecoder(BaseModel):
             for cross_attention in decoder_output["cross_attentions"]:
                 if self.config.concate_trace:
                     cross_attention = cross_attention[:, :, :, :100]
-                cross_attentions.append(cross_attention.mean(dim=1))
+                # cross_attentions.append(cross_attention.mean(dim=1))
+                cross_attentions.append(cross_attention)
             # breakpoint()
             if (
                 hasattr(self.config, "pretrans_attention")
                 and self.config.pretrans_attention
             ):
                 cross_attentions = self.attention_trans(cross_attentions)
+            else:
+                cross_attentions = [crs.mean(dim=1) for crs in cross_attentions]
             model_output = {}
             model_output["captions"] = torch.max(logits, dim=-1)[1]
             model_output["scores"] = logits
@@ -198,11 +201,14 @@ class AttentionTransform(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.linear = torch.nn.Linear(2, 1)
+        self.multi_head_linear = torch.nn.Linear(12, 1)
         self.norm = torch.nn.LayerNorm(100)
 
     def forward(self, attention):
         # import ipdb; ipdb.set_trace()
         attention = torch.stack(attention, dim=-1)
+        attention = attention.permute(0, 2, 3, 4, 1)
+        attention = self.multi_head_linear(attention).squeeze()
         attention = self.linear(attention).squeeze()
         attention = self.norm(attention)
         return attention
