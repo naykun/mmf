@@ -498,6 +498,43 @@ class LnAttentionSupervisionLoss(nn.Module):
         return loss * attention_supervision.size(1)
 
 
+@registry.register_loss("ln_attention_supervision_pretrans")
+class LnAttentionSupervisionPreTransLoss(nn.Module):
+    """Loss for attention supervision. Used in case you want to make attentions
+    similar to some particular values.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.loss_fn = lambda *args, **kwargs: nn.functional.binary_cross_entropy(
+            *args, **kwargs
+        )
+
+    def forward(self, sample_list, model_output):
+        """Calculates and returns the multi loss.
+
+        Args:
+            sample_list (SampleList): SampleList containing `targets` attribute.
+            model_output (Dict): Model output containing `scores` attribute.
+
+        Returns:
+            torch.FloatTensor: Float value for loss.
+
+        """
+        cross_attentions = model_output["cross_attentions"]
+        attention_supervision = sample_list["token_attends"][:, 1:]
+        # batch_size = attention_supervision.shape[0]
+        cross_attentions = torch.nn.functional.softmax(cross_attentions, dim=-1)
+        # import ipdb; ipdb.set_trace()
+
+        loss = self.loss_fn(
+            cross_attentions, attention_supervision, weight=attention_supervision
+        )
+        # breakpoint()
+        # Multiply average loss back with target size to get actual loss
+        return loss * attention_supervision.size(1)
+
+
 @registry.register_loss("in_batch_contrastive")
 class ContrastiveInBatch(nn.Module):
     def __init__(self, temperature=1, contrastive_by_row=True):

@@ -44,6 +44,11 @@ class TracedEncoderDecoder(BaseModel):
             self.trace_caption_contrastive = TraceCaptionContrastiveModel(
                 self.config.tc_contrastive_aggregate_method
             )
+        if (
+            hasattr(self.config, "pretrans_attention")
+            and self.config.pretrans_attention
+        ):
+            self.attention_trans = AttentionTransform()
         self.BOS_ID = 101
 
     def forward(self, sample_list, *args, **kwargs):
@@ -102,7 +107,11 @@ class TracedEncoderDecoder(BaseModel):
                     cross_attention = cross_attention[:, :, :, :100]
                 cross_attentions.append(cross_attention.mean(dim=1))
             # breakpoint()
-
+            if (
+                hasattr(self.config, "pretrans_attention")
+                and self.config.pretrans_attention
+            ):
+                cross_attentions = self.attention_trans(cross_attentions)
             model_output = {}
             model_output["captions"] = torch.max(logits, dim=-1)[1]
             model_output["scores"] = logits
@@ -183,6 +192,20 @@ class TracedEncoderDecoder(BaseModel):
             # breakpoint()
 
         return model_output
+
+
+class AttentionTransform(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = torch.nn.Linear(2, 1)
+        self.norm = torch.nn.LayerNorm(100)
+
+    def forward(self, attention):
+        # import ipdb; ipdb.set_trace()
+        attention = torch.stack(attention, dim=-1)
+        attention = self.linear(attention).squeeze()
+        attention = self.norm(attention)
+        return attention
 
 
 class TraceCaptionContrastiveModel(torch.nn.Module):
