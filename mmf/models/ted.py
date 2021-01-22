@@ -48,7 +48,12 @@ class TracedEncoderDecoder(BaseModel):
             hasattr(self.config, "pretrans_attention")
             and self.config.pretrans_attention
         ):
-            self.attention_trans = AttentionTransform()
+
+            # import ipdb; ipdb.set_trace()
+            tempconf = self.encoderdecoder.config.encoder
+            num_heads = tempconf.num_attention_heads
+            num_layers = tempconf.num_hidden_layers
+            self.attention_trans = AttentionTransform(num_layers, num_heads, 100)
         self.BOS_ID = 101
 
     def forward(self, sample_list, *args, **kwargs):
@@ -198,11 +203,11 @@ class TracedEncoderDecoder(BaseModel):
 
 
 class AttentionTransform(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, num_layers=2, num_heads=12, num_entries=100):
         super().__init__()
-        self.linear = torch.nn.Linear(2, 1)
-        self.multi_head_linear = torch.nn.Linear(12, 1)
-        self.norm = torch.nn.LayerNorm(100)
+        self.linear = torch.nn.Linear(num_layers, 1)
+        self.multi_head_linear = torch.nn.Linear(num_heads, 1)
+        self.norm = torch.nn.LayerNorm(num_entries)
 
     def forward(self, attention):
         # import ipdb; ipdb.set_trace()
