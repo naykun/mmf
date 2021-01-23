@@ -40,6 +40,15 @@ class TracedEncoderDecoder(BaseModel):
                 config_encoder, config_decoder
             )
             self.encoderdecoder = EncoderDecoderModel(config=self.codec_config)
+        elif self.config.base_model_name == "3layer-base":
+            config_encoder = BertConfig()
+            config_decoder = BertConfig()
+            config_encoder.num_hidden_layers = 3
+            config_decoder.num_hidden_layers = 3
+            self.codec_config = EncoderDecoderConfig.from_encoder_decoder_configs(
+                config_encoder, config_decoder
+            )
+            self.encoderdecoder = EncoderDecoderModel(config=self.codec_config)
         if self.config.loop_contrastive:
             self.trace_caption_contrastive = TraceCaptionContrastiveModel(
                 self.config.tc_contrastive_aggregate_method
