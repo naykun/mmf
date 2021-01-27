@@ -1,6 +1,22 @@
 includes:
 - ./caption_coco2017.yaml
 
+dataset_config:
+  caption_coco2017:
+    annotations:
+      val:
+      - localized_narratives/defaults/annotations/coco_val_localized_narratives.jsonl
+      test:
+      - localized_narratives/defaults/annotations/coco_val_localized_narratives.jsonl
+    processors:
+      caption_processor:
+        params:
+          segment_reverse: false
+      trace_bbox_processor:
+        params:
+          reverse: false
+          segment_reverse: false
+
 model_config:
   traced_encoder_decoder:
     inference:
