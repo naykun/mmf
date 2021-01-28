@@ -455,11 +455,20 @@ class LnAttentionSupervisionLoss(nn.Module):
     similar to some particular values.
     """
 
-    def __init__(self):
+    def __init__(self, super_type="bce"):
         super().__init__()
-        self.loss_fn = lambda *args, **kwargs: nn.functional.binary_cross_entropy(
-            *args, **kwargs
-        )
+        self.super_type = super_type
+        # import ipdb; ipdb.set_trace()
+        if super_type == "bce":
+            self.loss_fn = lambda *args, **kwargs: nn.functional.binary_cross_entropy(
+                *args, **kwargs
+            )
+        elif super_type == "mse":
+            self.loss_fn = lambda *args, **kwargs: nn.functional.mse_loss(
+                *args, **kwargs
+            )
+        elif super_type == "kld":
+            self.loss_fn = lambda *args, **kwargs: nn.functional.kl_div(*args, **kwargs)
 
     def forward(self, sample_list, model_output):
         """Calculates and returns the multi loss.
@@ -483,11 +492,17 @@ class LnAttentionSupervisionLoss(nn.Module):
             attention_supervision_norm = (
                 attention_supervision - attention_supervision.mean()
             ) / attention_supervision.var() * cross_attention_var + cross_attention_mean
-            loss_item = self.loss_fn(
-                cross_atten.view(batch_size, -1),
-                attention_supervision_norm.view(batch_size, -1).detach(),
-                weight=attention_supervision.view(batch_size, -1).detach(),
-            )
+            if self.super_type == "bce":
+                loss_item = self.loss_fn(
+                    cross_atten.view(batch_size, -1),
+                    attention_supervision_norm.view(batch_size, -1).detach(),
+                    weight=attention_supervision.view(batch_size, -1).detach(),
+                )
+            else:
+                loss_item = self.loss_fn(
+                    cross_atten.view(batch_size, -1),
+                    attention_supervision_norm.view(batch_size, -1).detach(),
+                )
             if loss:
                 loss += loss_item
             else:
@@ -504,11 +519,20 @@ class LnAttentionSupervisionPreTransLoss(nn.Module):
     similar to some particular values.
     """
 
-    def __init__(self):
+    def __init__(self, super_type="bce"):
         super().__init__()
-        self.loss_fn = lambda *args, **kwargs: nn.functional.binary_cross_entropy(
-            *args, **kwargs
-        )
+        self.super_type = super_type
+        # import ipdb; ipdb.set_trace()
+        if super_type == "bce":
+            self.loss_fn = lambda *args, **kwargs: nn.functional.binary_cross_entropy(
+                *args, **kwargs
+            )
+        elif super_type == "mse":
+            self.loss_fn = lambda *args, **kwargs: nn.functional.mse_loss(
+                *args, **kwargs
+            )
+        elif super_type == "kld":
+            self.loss_fn = lambda *args, **kwargs: nn.functional.kl_div(*args, **kwargs)
 
     def forward(self, sample_list, model_output):
         """Calculates and returns the multi loss.
@@ -523,13 +547,17 @@ class LnAttentionSupervisionPreTransLoss(nn.Module):
         """
         cross_attentions = model_output["cross_attentions"]
         attention_supervision = sample_list["token_attends"][:, 1:]
+        with torch.no_grad():
+            attention_supervision = torch.nn.functional.softmax(attention_supervision)
         # batch_size = attention_supervision.shape[0]
         cross_attentions = torch.nn.functional.softmax(cross_attentions, dim=-1)
         # import ipdb; ipdb.set_trace()
-
-        loss = self.loss_fn(
-            cross_attentions, attention_supervision, weight=attention_supervision
-        )
+        if self.super_type == "bce":
+            loss = self.loss_fn(
+                cross_attentions, attention_supervision, weight=attention_supervision
+            )
+        else:
+            loss = self.loss_fn(cross_attentions, attention_supervision)
         # breakpoint()
         # Multiply average loss back with target size to get actual loss
         return loss * attention_supervision.size(1)
