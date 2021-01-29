@@ -223,7 +223,124 @@ class TracedBertTokenizer(MaskedTokenProcessor):
         self.sync_seg_shuffle = (
             config.sync_seg_shuffle if hasattr(config, "sync_seg_shuffle") else False
         )
+        self.filter_vocab = (
+            config.filter_vocab if hasattr(config, "filter_vocab") else "none"
+        )
         registry.register("ln_caption_processor", self)
+
+        # attention guidance stop word / filter list
+        from nltk.corpus import stopwords
+        import nltk
+
+        nltk.download("stopwords")
+        self.stop_words = set(stopwords.words("english"))
+        for w in ["!", ",", ".", "?", "-s", "-ly", "</s>", "s"]:
+            self.stop_words.add(w)
+        COCO_CATE = [
+            "person",
+            "bicycle",
+            "car",
+            "motorcycle",
+            "airplane",
+            "bus",
+            "train",
+            "truck",
+            "boat",
+            "traffic light",
+            "fire hydrant",
+            "stop sign",
+            "parking meter",
+            "bench",
+            "bird",
+            "cat",
+            "dog",
+            "horse",
+            "sheep",
+            "cow",
+            "elephant",
+            "bear",
+            "zebra",
+            "giraffe",
+            "backpack",
+            "umbrella",
+            "handbag",
+            "tie",
+            "suitcase",
+            "frisbee",
+            "skis",
+            "snowboard",
+            "sports ball",
+            "kite",
+            "baseball bat",
+            "baseball glove",
+            "skateboard",
+            "surfboard",
+            "tennis racket",
+            "bottle",
+            "wine glass",
+            "cup",
+            "fork",
+            "knife",
+            "spoon",
+            "bowl",
+            "banana",
+            "apple",
+            "sandwich",
+            "orange",
+            "broccoli",
+            "carrot",
+            "hot dog",
+            "pizza",
+            "donut",
+            "cake",
+            "chair",
+            "couch",
+            "potted plant",
+            "bed",
+            "dining table",
+            "toilet",
+            "tv",
+            "laptop",
+            "mouse",
+            "remote",
+            "keyboard",
+            "cell phone",
+            "microwave",
+            "oven",
+            "toaster",
+            "sink",
+            "refrigerator",
+            "book",
+            "clock",
+            "vase",
+            "scissors",
+            "teddy bear",
+            "hair drier",
+            "toothbrush",
+        ]
+        self.coco_vocab = set()
+        for w in COCO_CATE:
+            piece = self.tokenize(w)
+            for p in piece:
+                self.coco_vocab.add(p)
+
+        from mmf.utils.download import download
+        import os
+
+        path = "/tmp/"
+        filename = "VG_categoty.txt"
+        filepath = os.path.join(path, filename)
+        url = "http://visualgenome.org/static/data/dataset/object_alias.txt"
+        if download(url, path, filename):
+            cate = []
+            with open(filepath) as fin:
+                for line in fin:
+                    cate += line.strip().split(",")
+            self.vg_vocab = set()
+            for w in cate:
+                piece = self.tokenize(w)
+                for p in piece:
+                    self.vg_vocab.add(p)
 
     def __call__(self, item):
 
@@ -285,7 +402,26 @@ class TracedBertTokenizer(MaskedTokenProcessor):
             seg_ids = [1] * len(tokens)
         seg_ids = seg_ids[: self._max_seq_length - 1]
 
-        output = self._convert_to_indices(tokens, token_attends, seg_ids)
+        # generate attention supervision mask
+        # import ipdb; ipdb.set_trace()
+        if self.filter_vocab == "stopword":
+            attend_masklist = [0 if tt in self.stop_words else 1 for tt in tokens]
+        elif self.filter_vocab == "coco":
+            attend_masklist = [
+                1 if (tt not in self.stop_words and tt in self.coco_vocab) else 0
+                for tt in tokens
+            ]
+        elif self.filter_vocab == "vg":
+            attend_masklist = [
+                1 if (tt not in self.stop_words and tt in self.vg_vocab) else 0
+                for tt in tokens
+            ]
+        elif self.filter_vocab == "none":
+            attend_masklist = [1] * len(tokens)
+
+        output = self._convert_to_indices(
+            tokens, token_attends, seg_ids, attend_masklist
+        )
         if self.sync_seg_reverse:
             output["sync_reverse"] = sync_reverse
             if self.sync_seg_shuffle and sync_reverse:
@@ -294,11 +430,12 @@ class TracedBertTokenizer(MaskedTokenProcessor):
                 output["sync_shuffle_order"] = None
         return output
 
-    def _convert_to_indices(self, tokens, token_attends, seg_ids):
+    def _convert_to_indices(self, tokens, token_attends, seg_ids, attend_mask):
         tokens = [self._CLS_TOKEN] + tokens
         token_attends = [np.zeros_like(token_attends[0])] + token_attends
         # attend_length = len(token_attends[0])
         segment_ids = [0] + seg_ids
+        attend_mask = [0] + attend_mask
 
         input_ids = self._tokenizer.convert_tokens_to_ids(tokens)
         input_mask = [1] * len(input_ids)
@@ -309,22 +446,26 @@ class TracedBertTokenizer(MaskedTokenProcessor):
             input_mask.append(0)
             segment_ids.append(0)
             token_attends.append(np.zeros_like(token_attends[0]))
+            attend_mask.append(0)
 
         assert len(input_ids) == self._max_seq_length
         assert len(input_mask) == self._max_seq_length
         assert len(segment_ids) == self._max_seq_length
         assert len(token_attends) == self._max_seq_length
+        assert len(attend_mask) == self._max_seq_length
 
         input_ids = torch.tensor(input_ids, dtype=torch.long)
         input_mask = torch.tensor(input_mask, dtype=torch.long)
         segment_ids = torch.tensor(segment_ids, dtype=torch.long)
         token_attends = torch.tensor(token_attends, dtype=torch.float)
+        attend_mask = torch.tensor(attend_mask, dtype=torch.long)
         return {
             "input_ids": input_ids,
             "input_mask": input_mask,
             "segment_ids": segment_ids,
             "token_attends": token_attends,
             "text": tokens,
+            "attend_supervision_mask": attend_mask,
         }
 
     def id2tokens(self, ids):

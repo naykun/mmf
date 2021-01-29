@@ -406,10 +406,11 @@ class MultiLoss(nn.Module):
             torch.FloatTensor: Float value for loss.
 
         """
+        # import ipdb; ipdb.set_trace()
         loss = 0
         for idx, loss_fn in enumerate(self.losses):
             value = loss_fn(sample_list, model_output, *args, **kwargs)
-            loss += self.losses_weights[idx] * value
+            loss += self.losses_weights[idx] * value[list(value.keys())[0]]
         return loss
 
 
@@ -483,8 +484,9 @@ class LnAttentionSupervisionLoss(nn.Module):
         """
         cross_attentions = model_output["cross_attentions"]
         attention_supervision = sample_list["token_attends"][:, 1:]
-        batch_size = attention_supervision.shape[0]
-
+        # batch_size = attention_supervision.shape[0]
+        # import ipdb; ipdb.set_trace()
+        supervision_mask = sample_list["attend_supervision_mask"][:, 1:] > 0
         loss = None
         for cross_atten in cross_attentions:
             cross_attention_mean = cross_atten.mean()
@@ -492,17 +494,28 @@ class LnAttentionSupervisionLoss(nn.Module):
             attention_supervision_norm = (
                 attention_supervision - attention_supervision.mean()
             ) / attention_supervision.var() * cross_attention_var + cross_attention_mean
+
+            attention_supervision_norm = attention_supervision_norm[supervision_mask]
+            cross_atten = cross_atten[supervision_mask]
             if self.super_type == "bce":
                 loss_item = self.loss_fn(
-                    cross_atten.view(batch_size, -1),
-                    attention_supervision_norm.view(batch_size, -1).detach(),
-                    weight=attention_supervision.view(batch_size, -1).detach(),
+                    cross_atten,
+                    attention_supervision_norm.detach(),
+                    weight=attention_supervision_norm.detach(),
                 )
+                # loss_item = self.loss_fn(
+                #     cross_atten.view(batch_size, -1),
+                #     attention_supervision_norm.view(batch_size, -1).detach(),
+                #     weight=attention_supervision.view(batch_size, -1).detach(),
+                # )
             else:
                 loss_item = self.loss_fn(
-                    cross_atten.view(batch_size, -1),
-                    attention_supervision_norm.view(batch_size, -1).detach(),
+                    cross_atten, attention_supervision_norm.detach()
                 )
+                # loss_item = self.loss_fn(
+                #     cross_atten.view(batch_size, -1),
+                #     attention_supervision_norm.view(batch_size, -1).detach(),
+                # )
             if loss:
                 loss += loss_item
             else:
