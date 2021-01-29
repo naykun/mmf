@@ -332,12 +332,13 @@ class TracedBertTokenizer(MaskedTokenProcessor):
 
         from mmf.utils.download import download
         import os
+        import random
 
         path = "/tmp/"
-        filename = "VG_categoty.txt"
+        filename = "VG_categoty{}.txt".format(random.randint(0, 10000))
         filepath = os.path.join(path, filename)
         url = "http://visualgenome.org/static/data/dataset/object_alias.txt"
-        if download(url, path, filename):
+        if download(url, path, filename, redownload=False):
             cate = []
             with open(filepath) as fin:
                 for line in fin:
