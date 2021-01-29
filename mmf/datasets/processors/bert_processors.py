@@ -9,6 +9,11 @@ from mmf.common.sample import Sample, SampleList
 from mmf.datasets.processors.processors import BaseProcessor
 from transformers.models.auto import AutoTokenizer
 
+import nltk
+
+
+nltk.download("stopwords")
+
 
 @registry.register_processor("masked_token")
 class MaskedTokenProcessor(BaseProcessor):
@@ -230,9 +235,10 @@ class TracedBertTokenizer(MaskedTokenProcessor):
 
         # attention guidance stop word / filter list
         from nltk.corpus import stopwords
-        import nltk
 
-        nltk.download("stopwords")
+        # import nltk
+
+        # nltk.download("stopwords")
         self.stop_words = set(stopwords.words("english"))
         for w in ["!", ",", ".", "?", "-s", "-ly", "</s>", "s"]:
             self.stop_words.add(w)
