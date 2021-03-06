@@ -42,7 +42,8 @@ class COCOEvalCap:
         # gts = {k:[' '.join(v)] for k,v in tokenizer.tokenize(gts).items()}
         # res = {k:[' '.join(v)] for k,v in tokenizer.tokenize(res).items()}
         gts = tokenizer.tokenize(gts)
-        res = {k: v[:1] for k, v in tokenizer.tokenize(res).items()}
+        # res = {k: v[:1] for k, v in tokenizer.tokenize(res).items()}
+        res = tokenizer.tokenize(res)
         # breakpoint()
 
         # =================================================
