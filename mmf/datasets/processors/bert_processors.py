@@ -1,6 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 
 import random
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -19,6 +20,8 @@ nltk.download("stopwords")
 class MaskedTokenProcessor(BaseProcessor):
     _CLS_TOKEN = "[CLS]"
     _SEP_TOKEN = "[SEP]"
+    _MASK_TOKEN = "[MASK]"
+    _PAD_TOKEN_ID = 0
 
     def __init__(self, config, *args, **kwargs):
         tokenizer_config = config.tokenizer_config
@@ -29,13 +32,25 @@ class MaskedTokenProcessor(BaseProcessor):
         self._max_seq_length = config.max_seq_length
         self._probability = getattr(config, "mask_probability", 0.15)
 
-    def get_vocab_size(self):
+    def get_vocab_size(self) -> int:
         return len(self._tokenizer)
 
-    def tokenize(self, tokens):
+    def tokenize(self, tokens: Union[str, List[str]]) -> List[str]:
         return self._tokenizer.tokenize(tokens)
 
-    def _random_word(self, tokens, probability=0.15):
+    def _convert_tokens_to_ids(
+        self, tokens: Union[str, List[str]]
+    ) -> Union[int, List[int]]:
+        return self._tokenizer.convert_tokens_to_ids(tokens)
+
+    def _convert_ids_to_tokens(
+        self, ids: Union[int, List[int]]
+    ) -> Union[str, List[str]]:
+        return self._tokenizer.convert_ids_to_tokens(ids)
+
+    def _random_word(
+        self, tokens: List[str], probability: float = 0.15
+    ) -> Tuple[List[str], List[int]]:
         labels = []
         for idx, token in enumerate(tokens):
             prob = random.random()
@@ -45,22 +60,24 @@ class MaskedTokenProcessor(BaseProcessor):
 
                 # 80% randomly change token to mask token
                 if prob < 0.8:
-                    tokens[idx] = "[MASK]"
+                    tokens[idx] = self._MASK_TOKEN
                 # 10% randomly change token to random token
                 elif prob < 0.9:
-                    tokens[idx] = self._tokenizer.convert_ids_to_tokens(
-                        torch.randint(len(self._tokenizer), (1,), dtype=torch.long)
+                    tokens[idx] = self._convert_ids_to_tokens(
+                        torch.randint(self.get_vocab_size(), (1,), dtype=torch.long)
                     )[0]
 
                 # rest 10% keep the original token as it is
 
-                labels.append(self._tokenizer.convert_tokens_to_ids(token))
+                labels.append(self._convert_tokens_to_ids(token))
             else:
                 labels.append(-1)
 
         return tokens, labels
 
-    def _truncate_seq_pair(self, tokens_a, tokens_b, max_length):
+    def _truncate_seq_pair(
+        self, tokens_a: List[str], tokens_b: List[str], max_length: int
+    ):
         """Truncates a sequence pair in place to the maximum length."""
 
         # This is a simple heuristic which will always truncate the longer sequence
@@ -86,7 +103,12 @@ class MaskedTokenProcessor(BaseProcessor):
             else:
                 tokens_b.pop()
 
-    def _convert_to_indices(self, tokens_a, tokens_b=None, probability=0.15):
+    def _convert_to_indices(
+        self,
+        tokens_a: List[str],
+        tokens_b: Optional[List[str]] = None,
+        probability: float = 0.15,
+    ) -> Dict[str, torch.Tensor]:
         tokens_a, label_a = self._random_word(tokens_a, probability=probability)
         tokens = [self._CLS_TOKEN] + tokens_a + [self._SEP_TOKEN]
         segment_ids = [0] + [0] * len(tokens_a) + [0]
@@ -100,12 +122,12 @@ class MaskedTokenProcessor(BaseProcessor):
         else:
             lm_label_ids = [-1] + label_a + [-1]
 
-        input_ids = self._tokenizer.convert_tokens_to_ids(tokens)
+        input_ids = self._convert_tokens_to_ids(tokens)
         input_mask = [1] * len(input_ids)
 
         # Zero-pad up to the sequence length.
         while len(input_ids) < self._max_seq_length:
-            input_ids.append(0)
+            input_ids.append(self._PAD_TOKEN_ID)
             input_mask.append(0)
             segment_ids.append(0)
             lm_label_ids.append(-1)
@@ -127,7 +149,7 @@ class MaskedTokenProcessor(BaseProcessor):
             "tokens": tokens,
         }
 
-    def __call__(self, item):
+    def __call__(self, item: Dict[str, Any]):
         text_a = item["text_a"]
         text_b = item.get("text_b", None)
 
@@ -150,12 +172,13 @@ class MaskedTokenProcessor(BaseProcessor):
 class BertTokenizer(MaskedTokenProcessor):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
-        self._probability = 0
+        self._probability = config.get("mask_probability", 0)
 
-    def __call__(self, item):
-
+    def __call__(self, item: Dict[str, Any]):
         if "text" in item:
             text_a = item["text"]
+        elif "text_a" in item:
+            text_a = item["text_a"]
         else:
             text_a = " ".join(item["tokens"])
 
@@ -179,8 +202,20 @@ class BertTokenizer(MaskedTokenProcessor):
         return output
 
 
+@registry.register_processor("roberta_tokenizer")
+class RoBERTaTokenizer(BertTokenizer):
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(config, *args, **kwargs)
+        # https://huggingface.co/transformers/model_doc/xlmroberta.html
+        # roberta is with different tokenization of above default (bert)
+        self._CLS_TOKEN = "<s>"
+        self._SEP_TOKEN = "</s>"
+        self._MASK_TOKEN = "<mask>"
+        self._PAD_TOKEN_ID = 1  # roberta's pad_token_id == 1
+
+
 @registry.register_processor("multi_sentence_bert_tokenizer")
-class MultiSentenceBertTokenizer(BertTokenizer):
+class MultiSentenceBertTokenizer(BaseProcessor):
     """Extension of BertTokenizer which supports multiple sentences.
     Separate from normal usecase, each sentence will be passed through
     bert tokenizer separately and indices will be reshaped as single
@@ -190,9 +225,10 @@ class MultiSentenceBertTokenizer(BertTokenizer):
     def __init__(self, config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.fusion_strategy = config.get("fusion", "concat")
-        self.tokenizer = super().__call__
+        self._probability = config.get("mask_probability", 0)
+        self.tokenizer = BertTokenizer(config)
 
-    def __call__(self, item):
+    def __call__(self, item: Dict[str, Any]):
         texts = item["text"]
         if not isinstance(texts, list):
             texts = [texts]

@@ -5,11 +5,8 @@ from typing import Any, Dict, List, Type
 
 import torch
 from mmf.common.registry import registry
-from mmf.models.transformers.base import (
-    BaseTransformerBackend,
-    BaseTransformerConfigType,
-)
-from mmf.modules.hf_layers import replace_with_jit
+from mmf.models.transformers.base import BaseTransformer, BaseTransformerBackend
+from mmf.modules.hf_layers import BertModelJit, replace_with_jit
 from omegaconf import OmegaConf
 from torch import Tensor, nn
 from transformers import AutoConfig, AutoModel
@@ -25,7 +22,7 @@ class HuggingfaceEmbeddings(nn.Module):
 
     def __init__(
         self,
-        model_config: BaseTransformerConfigType,
+        model_config: BaseTransformer.Config,
         transformer_config: Dict[str, Any],
         transformer: Type[nn.Module],
         *args,
@@ -145,6 +142,7 @@ class HuggingfaceEmbeddings(nn.Module):
         ):
             modality_name = self.modality_keys[idx]
             total_embedding = token_emb(tokens_ids[modality_name])
+
             if modality_name in position_ids:
                 total_embedding += pos_emb(position_ids[modality_name])
 
@@ -162,7 +160,7 @@ class HuggingfaceEmbeddings(nn.Module):
 class HuggingfaceBackend(BaseTransformerBackend):
     """Transformer backend wih Huggingface transformer models"""
 
-    def __init__(self, config: BaseTransformerConfigType, *args, **kwargs):
+    def __init__(self, config: BaseTransformer.Config, *args, **kwargs):
         super().__init__(config)
 
         # Replace transformer layers with scriptable JIT layers
@@ -176,9 +174,17 @@ class HuggingfaceBackend(BaseTransformerBackend):
 
     def build_transformer_base(self):
         """Build the transformer base model."""
-        self.transformer = AutoModel.from_pretrained(
-            self.config.transformer_base, config=self.transformer_config
-        )
+        hf_params = {"config": self.transformer_config}
+
+        # For BERT models, initialize using Jit version
+        if self.config.transformer_base.startswith("bert-"):
+            self.transformer = BertModelJit.from_pretrained(
+                self.config.transformer_base, **hf_params
+            )
+        else:
+            self.transformer = AutoModel.from_pretrained(
+                self.config.transformer_base, **hf_params
+            )
 
     def build_embeddings(self):
         """Build the multimodal embeddings using the transformer base
