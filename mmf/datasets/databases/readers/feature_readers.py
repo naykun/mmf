@@ -116,6 +116,7 @@ class CHWFeatureReader:
         if self.max_features:
             padded_feat = torch.zeros((b, c, self.img_h, self.img_w), dtype=torch.float)
             padded_feat[:, :, :h, :w] = feat
+            feat = padded_feat
         feat = feat.squeeze(0)
         return feat, None
 
@@ -184,9 +185,7 @@ class PaddedFasterRCNNFeatureReader:
 
         image_loc, image_dim = image_feature.shape
         tmp_image_feat = np.zeros((self.max_loc, image_dim), dtype=np.float32)
-        tmp_image_feat[0:image_loc,] = image_feature[
-            : self.max_loc, :
-        ]  # noqa
+        tmp_image_feat[0:image_loc,] = image_feature[: self.max_loc, :]  # noqa
         image_feature = torch.from_numpy(tmp_image_feat)
 
         del image_info["features"]
@@ -254,9 +253,7 @@ class PaddedFeatureRCNNWithBBoxesFeatureReader:
         tmp_image_feat = image_feat_bbox.item().get("image_feature")
         image_loc, image_dim = tmp_image_feat.shape
         tmp_image_feat_2 = np.zeros((self.max_loc, image_dim), dtype=np.float32)
-        tmp_image_feat_2[
-            0:image_loc,
-        ] = tmp_image_feat  # noqa
+        tmp_image_feat_2[0:image_loc,] = tmp_image_feat  # noqa
         tmp_image_feat_2 = torch.from_numpy(tmp_image_feat_2)
         tmp_image_box = np.zeros((self.max_loc, 4), dtype=np.int32)
         tmp_image_box[0:image_loc] = image_boxes

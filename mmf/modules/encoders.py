@@ -1,6 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import os
 import pickle
+import re
+from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
@@ -9,6 +11,7 @@ from typing import Any
 import torch
 import torchvision
 from mmf.common.registry import registry
+from mmf.models.frcnn import GeneralizedRCNN
 from mmf.modules.embeddings import (
     ProjectionEmbedding,
     SinusoidalPositionalEmbedding,
@@ -25,6 +28,12 @@ from omegaconf import MISSING, OmegaConf
 from torch import nn
 from transformers.models.auto.configuration_auto import AutoConfig
 from transformers.models.auto.modeling_auto import AutoModel
+
+
+try:
+    from detectron2.modeling import ShapeSpec, build_resnet_backbone
+except ImportError:
+    pass
 
 
 class Encoder(nn.Module):
@@ -169,7 +178,8 @@ class IdentityEncoder(Encoder):
     @dataclass
     class Config(Encoder.Config):
         name: str = "identity"
-        in_dim: int = MISSING
+        # Random in_dim if not specified
+        in_dim: int = 100
 
     def __init__(self, config: Config):
         super().__init__()
@@ -184,7 +194,9 @@ class IdentityEncoder(Encoder):
 class ImageEncoderTypes(Enum):
     default = "default"
     identity = "identity"
+    torchvision_resnet = "torchvision_resnet"
     resnet152 = "resnet152"
+    detectron2_resnet = "detectron2_resnet"
 
 
 class ImageEncoderFactory(EncoderFactory):
@@ -206,6 +218,12 @@ class ImageEncoderFactory(EncoderFactory):
             self.module.out_dim = params.in_dim
         elif self._type == "resnet152":
             self.module = ResNet152ImageEncoder(params)
+        elif self._type == "torchvision_resnet":
+            self.module = TorchvisionResNetImageEncoder(params)
+        elif self._type == "detectron2_resnet":
+            self.module = Detectron2ResnetImageEncoder(params)
+        elif self._type == "frcnn":
+            self.module = FRCNNImageEncoder(params)
         else:
             raise NotImplementedError("Unknown Image Encoder: %s" % self._type)
 
@@ -261,6 +279,112 @@ class ResNet152ImageEncoder(Encoder):
         out = torch.flatten(out, start_dim=2)
         out = out.transpose(1, 2).contiguous()
         return out  # BxNx2048
+
+
+@registry.register_encoder("torchvision_resnet")
+class TorchvisionResNetImageEncoder(Encoder):
+    @dataclass
+    class Config(Encoder.Config):
+        name: str = "resnet50"
+        pretrained: bool = False
+        zero_init_residual: bool = True
+        use_avgpool: bool = True
+
+    def __init__(self, config: Config, *args, **kwargs):
+        super().__init__()
+        self.config = config
+
+        model = getattr(torchvision.models, config.name)(
+            pretrained=config.pretrained, zero_init_residual=config.zero_init_residual
+        )
+        # Set avgpool and fc layers in torchvision to Identity.
+        if not config.get("use_avgpool", False):
+            model.avgpool = Identity()
+        model.fc = Identity()
+
+        self.model = model
+        self.out_dim = 2048
+
+    def forward(self, x):
+        # B x 3 x 224 x 224 -> B x 2048 x 7 x 7
+        out = self.model(x)
+        return out
+
+
+@registry.register_encoder("detectron2_resnet")
+class Detectron2ResnetImageEncoder(Encoder):
+    @dataclass
+    class Config(Encoder.Config):
+        name: str = "detectron2_resnet"
+        pretrained: bool = True
+        pretrained_path: str = None
+
+    def __init__(self, config: Config, *args, **kwargs):
+        super().__init__()
+        self.config = config
+        pretrained = config.get("pretrained", False)
+        pretrained_path = config.get("pretrained_path", None)
+
+        self.resnet = build_resnet_backbone(config, ShapeSpec(channels=3))
+
+        if pretrained:
+            state_dict = torch.hub.load_state_dict_from_url(
+                pretrained_path, progress=False
+            )
+            new_state_dict = OrderedDict()
+            replace_layer = {"backbone.": ""}
+
+            for key, value in state_dict["model"].items():
+                new_key = re.sub(
+                    r"(backbone\.)", lambda x: replace_layer[x.groups()[0]], key
+                )
+                new_state_dict[new_key] = value
+            self.resnet.load_state_dict(new_state_dict, strict=False)
+
+        self.out_dim = 2048
+
+    def forward(self, x):
+        x = self.resnet(x)
+        return x["res5"]
+
+
+@registry.register_encoder("frcnn")
+class FRCNNImageEncoder(Encoder):
+    @dataclass
+    class Config(Encoder.Config):
+        name: str = "frcnn"
+        pretrained: bool = True
+        pretrained_path: str = None
+
+    def __init__(self, config: Config, *args, **kwargs):
+        super().__init__()
+        self.config = config
+        pretrained = config.get("pretrained", False)
+        pretrained_path = config.get("pretrained_path", None)
+        self.frcnn = GeneralizedRCNN(config)
+        if pretrained:
+            state_dict = torch.load(pretrained_path)
+            self.frcnn.load_state_dict(state_dict)
+            self.frcnn.eval()
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        sizes: torch.Tensor = None,
+        scales_yx: torch.Tensor = None,
+        padding: torch.Tensor = None,
+        max_detections: int = 0,
+        return_tensors: str = "pt",
+    ):
+        x = self.frcnn(
+            x,
+            sizes,
+            scales_yx=scales_yx,
+            padding=padding,
+            max_detections=max_detections,
+            return_tensors=return_tensors,
+        )
+        return x
 
 
 class TextEncoderTypes(Enum):
@@ -384,12 +508,13 @@ class TransformerEncoder(Encoder):
 
     def _build_encoder_config(self, config: Config):
         return AutoConfig.from_pretrained(
-            self.config.bert_model_name, **OmegaConf.to_container(self.config)
+            config.bert_model_name, **OmegaConf.to_container(config)
         )
 
-    def forward(self, *args, **kwargs):
+    def forward(self, *args, return_sequence=False, **kwargs) -> torch.Tensor:
         # Only return pooled output
-        return self.module(*args, **kwargs)[1]
+        output = self.module(*args, **kwargs)
+        return output[0] if return_sequence else output[1]
 
 
 class MultiModalEncoderBase(Encoder):
