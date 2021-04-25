@@ -7,7 +7,10 @@ import torch
 from mmf.common.registry import registry
 from mmf.models.transformers.base import BaseTransformerHead
 from torch import nn
-from transformers.modeling_bert import BertPooler, BertPredictionHeadTransform
+from transformers.models.bert.modeling_bert import (
+    BertPooler,
+    BertPredictionHeadTransform,
+)
 
 
 @registry.register_transformer_head("mlp")

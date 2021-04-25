@@ -16,7 +16,7 @@ from mmf.models.unit.unit_base_model import (
 from mmf.modules.encoders import TransformerEncoder
 from mmf.utils.distributed import byte_tensor_to_object
 from torch import Tensor, nn
-from transformers.modeling_bert import BertPredictionHeadTransform
+from transformers.models.bert.modeling_bert import BertPredictionHeadTransform
 
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class UniT(BaseModel):
 
         ckpt_path = self.config.base_ckpt_path
         if ckpt_path != "":
-            logger.info("initializing base model (UniT) from {}".format(ckpt_path))
+            logger.info(f"initializing base model (UniT) from {ckpt_path}")
             if ckpt_path.startswith("https"):
                 base_checkpoint = torch.hub.load_state_dict_from_url(
                     ckpt_path, check_hash=True
