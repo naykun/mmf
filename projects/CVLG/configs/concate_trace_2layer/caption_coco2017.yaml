@@ -2,7 +2,7 @@ includes:
   - ../../../../mmf/configs/datasets/coco2017/traced_caption_anno_lmdb_img_itp.yaml
 
 model_config:
-    traced_encoder_decoder:
+    cvlg:
       concate_trace: true
       base_model_name: 2layer-base
       max_gen_length: 225
