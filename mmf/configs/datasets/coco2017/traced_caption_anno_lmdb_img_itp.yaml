@@ -15,12 +15,12 @@ dataset_config:
     images:
       train:
       # - coco/defaults/images/train2017
-      - /vc_data/users/t-kunyan/images/coco/train2017
+      - /vc_data/users/t-kunyan/images/train2017
       val:
       # - coco/defaults/images/val2017
-      - /vc_data/users/t-kunyan/images/coco/val2017
+      - /vc_data/users/t-kunyan/images/val2017
       test:
-      - /vc_data/users/t-kunyan/images/coco/val2017
+      - /vc_data/users/t-kunyan/images/val2017
       # - coco/defaults/images/val2017
     annotations:
       train:
