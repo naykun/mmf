@@ -226,7 +226,7 @@ class CrossVLGenerator(BaseModel):
             )
             # Add a dummy loss so that loss calculation is not required
             model_output["losses"][loss_key + "/dummy_loss"] = torch.zeros(
-                batch_size, device=sample_list.image_feature_0.device
+                1, device=sample_list.image_feature_0.device
             )
             # breakpoint()
 

@@ -20,7 +20,10 @@ model_config:
           hidden_dropout_prob: 0.1
 
 dataset_config:
-  caption_coco2017:
+  cvlg_coco2017:
+    split_train:
+        val: 0.001 # 0.99 of the train dataset will be used for validation
+        test: 0.001
     processors:
       caption_processor:
         params:
@@ -58,7 +61,7 @@ training:
   max_updates: 100
   find_unused_parameters: true
   early_stop:
-    criteria: val/caption_coco2017/traced_bert_caption_bleu4
+    criteria: val/cvlg_coco2017/traced_bert_caption_bleu4
     minimize: false
 evaluation:
   metrics:
