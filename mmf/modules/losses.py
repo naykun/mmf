@@ -310,6 +310,9 @@ class CaptionCrossEntropyLoss(nn.Module):
         scores = model_output["scores"]
         targets = sample_list["targets"]
 
+        scores[scores != scores] = 0.0
+        scores[scores == float("inf")] = torch.finfo(scores.dtype).max
+
         # If no captions(test dataset) then assume decode length to be uniform
         if hasattr(sample_list, "caption_len"):
             caption_lengths, _ = sample_list.caption_len.sort(dim=0, descending=True)
@@ -324,7 +327,7 @@ class CaptionCrossEntropyLoss(nn.Module):
         else:
             scores, _ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
             targets, _ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
-
+        # import ipdb; ipdb.set_trace()
         loss = F.cross_entropy(scores, targets)
 
         return loss
