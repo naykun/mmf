@@ -313,6 +313,7 @@ class CaptionCrossEntropyLoss(nn.Module):
         scores[scores != scores] = 0.0
         scores[scores == float("inf")] = torch.finfo(scores.dtype).max
         print("scores:---max:", scores.max(), "---min:", scores.min())
+        print("targets:---max:", targets.max(), "---min:", targets.min())
 
         # If no captions(test dataset) then assume decode length to be uniform
         if hasattr(sample_list, "caption_len"):
