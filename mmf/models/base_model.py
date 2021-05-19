@@ -49,12 +49,14 @@ from typing import List, Optional, Union
 
 import pytorch_lightning as pl
 from mmf.common.registry import registry
+from mmf.common.report import Report
 from mmf.common.sample import SampleList, to_device
 from mmf.modules.losses import LossConfig, Losses
 from mmf.utils.checkpoint import load_pretrained_model
 from mmf.utils.download import download_pretrained_model
 from mmf.utils.file_io import PathManager
 from mmf.utils.general import get_current_device
+from mmf.utils.logger import log_class_usage
 from omegaconf import MISSING, DictConfig, OmegaConf
 
 
@@ -89,6 +91,8 @@ class BaseModel(pl.LightningModule):
         self._is_pretrained = False
         self._is_pl_enabled = False
 
+        log_class_usage("Model", self.__class__)
+
     @classmethod
     def from_params(cls, **kwargs):
         return cls(OmegaConf.structured(cls.Config(**kwargs)))
@@ -117,6 +121,12 @@ class BaseModel(pl.LightningModule):
         raise NotImplementedError(
             "Build method not implemented in the child model class."
         )
+
+    def build_meters(self, run_type):
+        from mmf.utils.build import build_meters
+
+        """Function only used in lightning setting"""
+        self.train_meter, self.val_meter, self.test_meter = build_meters(run_type)
 
     def init_losses(self):
         """Initializes loss for the model based ``losses`` key. Automatically called by
@@ -175,7 +185,7 @@ class BaseModel(pl.LightningModule):
             "Forward of the child model class needs to be implemented."
         )
 
-    def training_step(self, batch, batch_idx, *args, **kwargs):
+    def training_step(self, batch: SampleList, batch_idx: int, *args, **kwargs):
         """Member function of PL modules. Used only when PL enabled.
         To be implemented by child class. Takes in a ``SampleList``,
         batch_idx and returns back a dict.
@@ -187,13 +197,12 @@ class BaseModel(pl.LightningModule):
         Returns:
             Dict: Dict containing loss.
         """
-        batch = self._ensure_sample_list(batch)
-        output = self(batch)
-        loss_dict = output["losses"]
-        output["loss"] = sum(loss.mean() for loss in loss_dict.values())
+        output = self._forward_lightning_step(batch, batch_idx)
+        report = Report(batch, output)
+        self.train_meter.update_from_report(report)
         return output
 
-    def validation_step(self, batch, batch_idx, *args, **kwargs):
+    def validation_step(self, batch: SampleList, batch_idx: int, *args, **kwargs):
         """Member function of PL modules. Used only when PL enabled.
         To be implemented by child class. Takes in a ``SampleList``,
         batch_idx and returns back a dict.
@@ -205,9 +214,31 @@ class BaseModel(pl.LightningModule):
         Returns:
             Dict
         """
+        output = self._forward_lightning_step(batch, batch_idx)
+        report = Report(batch, output)
+        self.val_meter.update_from_report(report)
+        report.metrics = self.metrics(report, report)
+        return output
+
+    def test_step(self, batch: SampleList, batch_idx: int, *args, **kwargs):
+        """Member function of PL modules. Used only when PL enabled.
+        To be implemented by child class. Takes in a ``SampleList``,
+        batch_idx and returns back a dict.
+
+        Args:
+            sample_list (SampleList): SampleList returned by the DataLoader for
+            current iteration
+
+        Returns:
+            Dict
+        """
+        return self._forward_lightning_step(batch, batch_idx)
+
+    def _forward_lightning_step(self, batch, batch_idx):
         batch = self._ensure_sample_list(batch)
         output = self(batch)
-        # TODO: @sash Implementation coming soon! (next PR)
+        loss_dict = output["losses"]
+        output["loss"] = sum(loss.mean() for loss in loss_dict.values())
         return output
 
     def configure_optimizers(self):

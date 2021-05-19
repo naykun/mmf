@@ -93,7 +93,8 @@ def synchronize(message="sync-workers"):
 
 
 def is_xla():
-    return registry.get("is_xla", no_warning=True)
+    # Cover none case as well
+    return not (not registry.get("is_xla", no_warning=True))
 
 
 def get_rank():
@@ -186,7 +187,7 @@ def gather_tensor(tensor):
             tensor_list = tensor_list.view(world_size, *tensor.size())
         else:
             dist.all_gather(tensor_list, tensor)
-        tensor_list = torch.stack(tensor_list, dim=0)
+            tensor_list = torch.stack(tensor_list, dim=0)
     return tensor_list
 
 

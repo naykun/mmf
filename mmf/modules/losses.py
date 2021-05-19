@@ -34,6 +34,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from mmf.common.registry import registry
+from mmf.utils.logger import log_class_usage
 from omegaconf import MISSING
 from torch import Tensor
 from torch.nn.utils.rnn import pack_padded_sequence
@@ -168,10 +169,12 @@ class MMFLoss(nn.Module):
 
         loss_class = registry.get_loss_class(loss_name)
 
+        log_class_usage("Loss", loss_class)
+
         if loss_class is None:
             raise ValueError(f"No loss named {loss_name} is registered to registry")
         # Special case of multi as it requires an array
-        if loss_name == "multi":
+        if loss_name.startswith("multi"):
             assert is_mapping
             self.loss_criterion = loss_class(params)
         else:

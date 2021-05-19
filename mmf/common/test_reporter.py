@@ -3,6 +3,7 @@ import csv
 import json
 import logging
 import os
+import warnings
 from dataclasses import dataclass, field
 from typing import List
 
@@ -13,6 +14,7 @@ from mmf.utils.configuration import get_mmf_env
 from mmf.utils.distributed import gather_tensor, is_master
 from mmf.utils.file_io import PathManager
 from mmf.utils.general import ckpt_name_from_core_args, foldername_from_config_override
+from mmf.utils.logger import log_class_usage
 from mmf.utils.timer import Timer
 from omegaconf import OmegaConf
 from torch.utils.data import Dataset
@@ -86,6 +88,8 @@ class TestReporter(Dataset):
 
         PathManager.mkdirs(self.report_folder)
 
+        log_class_usage("TestReporter", self.__class__)
+
     @property
     def current_dataset(self):
         self._check_current_dataloader()
@@ -113,6 +117,8 @@ class TestReporter(Dataset):
 
     def flush_report(self):
         if not is_master():
+            # Empty report in all processes to avoid any leaks
+            self.report = []
             return
 
         name = self.current_datamodule.dataset_name
@@ -190,13 +196,16 @@ class TestReporter(Dataset):
             + "'current_dataloader' based function"
         )
 
-    def add_to_report(self, report, model, execute_on_master_only=True):
+    def add_to_report(self, report, model, *args, **kwargs):
+        if "execute_on_master_only" in kwargs:
+            warnings.warn(
+                "'execute_on_master_only keyword is deprecated and isn't used anymore",
+                DeprecationWarning,
+            )
         self._check_current_dataloader()
         for key in self.candidate_fields:
             report = self.reshape_and_gather(report, key)
 
-        if execute_on_master_only and not is_master():
-            return
         results = []
 
         if hasattr(self.current_dataset, "format_for_prediction"):
