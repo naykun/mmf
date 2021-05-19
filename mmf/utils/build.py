@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import mmf
 import pytorch_lightning as pl
 import torch
+from mmf.common.meter import Meter
 from mmf.common.registry import registry
 from mmf.datasets.iteration_strategies import (
     ConstantIterationStrategy,
@@ -86,7 +87,6 @@ def build_model(
     model = model_class(config)
 
     if hasattr(model, "build"):
-        model.load_requirements()
         """ Model build involves checkpoint loading
         If the checkpoint is not available the underlying
         methods try to download it.
@@ -98,6 +98,7 @@ def build_model(
         using already downloaded checkpoint.
         """
         if is_master():
+            model.load_requirements()
             model.build()
             synchronize()
         else:
@@ -206,8 +207,12 @@ def build_multiple_datamodules(
                 + " in config. Proceeding with empty config."
             )
             dataset_config = OmegaConf.create()
-        datamodule_instance.prepare_data(dataset_config)
-        datamodule_instance.setup()
+
+        if is_master():
+            datamodule_instance.prepare_data(dataset_config)
+
+        synchronize()
+        datamodule_instance.setup(config=dataset_config)
         if hasattr(datamodule_instance, "update_registry_for_model"):
             datamodule_instance.update_registry_for_model(dataset_config)
         datamodules[dataset] = datamodule_instance
@@ -259,7 +264,7 @@ def build_dataloader_and_sampler(
         collate_fn=BatchCollator(
             dataset_instance.dataset_name, dataset_instance.dataset_type
         ),
-        drop_last=False,  # see also MultiDatasetLoader.__len__
+        drop_last=is_xla(),  # see also MultiDatasetLoader.__len__
         **other_args,
     )
 
@@ -544,3 +549,18 @@ def build_iteration_strategy(
             )
         else:
             return iteration_strategy_class(config, dataloaders, *args, **kwargs)
+
+
+def build_meters(run_type: str) -> List[Meter]:
+    train_meter, val_meter, test_meter = None, None, None
+    if "train" in run_type:
+        train_meter = Meter()
+        # val_meter used for validation after training loop
+        val_meter = Meter()
+    elif "val" in run_type or "inference" in run_type:
+        val_meter = Meter()
+
+    if "test" in run_type:
+        test_meter = Meter()
+
+    return train_meter, val_meter, test_meter
