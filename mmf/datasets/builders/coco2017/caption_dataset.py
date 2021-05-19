@@ -2,8 +2,8 @@
 
 from mmf.common.typings import MMFDatasetConfigType
 from mmf.datasets.builders.localized_narratives.caption_dataset import (
+    CVLGLocalizedNarrativesDatasetMixin,
     TracedCaptionLocalizedNarrativesDatasetMixin,
-    CVLGLocalizedNarrativesDatasetMixin
 )
 from mmf.datasets.mmf_dataset import MMFDataset
 
@@ -23,9 +23,8 @@ class TracedCaptionCoco2017Dataset(
             "caption_coco2017", config, dataset_type, index, *args, **kwargs
         )
 
-class CVLGCoco2017Dataset(
-    CVLGLocalizedNarrativesDatasetMixin, MMFDataset
-):
+
+class CVLGCoco2017Dataset(CVLGLocalizedNarrativesDatasetMixin, MMFDataset):
     def __init__(
         self,
         config: MMFDatasetConfigType,
@@ -34,6 +33,4 @@ class CVLGCoco2017Dataset(
         *args,
         **kwargs,
     ):
-        super().__init__(
-            "cvlg_coco2017", config, dataset_type, index, *args, **kwargs
-        )
+        super().__init__("cvlg_coco2017", config, dataset_type, index, *args, **kwargs)

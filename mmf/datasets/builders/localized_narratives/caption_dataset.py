@@ -33,7 +33,9 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
             self.transformer_bbox_processor(features["image_info_0"])
             current_sample.update(features)
         elif self._use_images:
-            import ipdb; ipdb.set_trace()
+            import ipdb
+
+            ipdb.set_trace()
             image_id = sample_info["image_id"]
             dataset = sample_info["dataset_id"]
             if "mscoco" in dataset:
@@ -54,11 +56,18 @@ class TracedCaptionLocalizedNarrativesDatasetMixin(ABC):
         # should be a trace enhanced processor
         current_sample.update(processed_caption)
         # print(processed_caption.get("sync_reverse",False))
-        processed_traces = self.trace_bbox_processor(image_info_0, sample_info, processed_caption.get("sync_reverse",False), processed_caption.get("sync_shuffle_order",None))
+        processed_traces = self.trace_bbox_processor(
+            image_info_0,
+            sample_info,
+            processed_caption.get("sync_reverse", False),
+            processed_caption.get("sync_shuffle_order", None),
+        )
         current_sample.update(processed_traces)
         current_sample.image_id = object_to_byte_tensor(sample_info["image_id"])
         current_sample.feature_path = sample_info["feature_path"]
-        import ipdb; ipdb.set_trace()
+        import ipdb
+
+        ipdb.set_trace()
 
         return current_sample
 
@@ -129,7 +138,12 @@ class CVLGLocalizedNarrativesDatasetMixin(ABC):
         # should be a trace enhanced processor
         current_sample.update(processed_caption)
         # print(processed_caption.get("sync_reverse",False))
-        processed_traces = self.trace_bbox_processor(image_info_0, sample_info, processed_caption.get("sync_reverse",False), processed_caption.get("sync_shuffle_order",None))
+        processed_traces = self.trace_bbox_processor(
+            image_info_0,
+            sample_info,
+            processed_caption.get("sync_reverse", False),
+            processed_caption.get("sync_shuffle_order", None),
+        )
         current_sample.update(processed_traces)
         current_sample.image_id = object_to_byte_tensor(sample_info["image_id"])
         current_sample.feature_path = sample_info["feature_path"]
@@ -159,7 +173,6 @@ class CVLGLocalizedNarrativesDatasetMixin(ABC):
             )
 
         return predictions
-
 
 
 class TracedCaptionLocalizedNarrativesDataset(

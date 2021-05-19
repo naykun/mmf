@@ -1,6 +1,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 from mmf.common.registry import registry
-from mmf.datasets.builders.coco2017.caption_dataset import TracedCaptionCoco2017Dataset, CVLGCoco2017Dataset
+from mmf.datasets.builders.coco2017.caption_dataset import (
+    CVLGCoco2017Dataset,
+    TracedCaptionCoco2017Dataset,
+)
 from mmf.datasets.mmf_dataset_builder import MMFDatasetBuilder
 
 

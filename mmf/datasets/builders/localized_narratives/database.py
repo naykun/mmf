@@ -1,11 +1,12 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import json
+import os
+import pickle
 from typing import List, NamedTuple, Optional
 
-from mmf.datasets.databases.annotation_database import AnnotationDatabase
 import lmdb
-import pickle
-import os
+from mmf.datasets.databases.annotation_database import AnnotationDatabase
+
 
 class TimedPoint(NamedTuple):
     x: float
@@ -51,7 +52,6 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
     def __init__(self, config, path, *args, **kwargs):
         super().__init__(config, path, *args, **kwargs)
 
-
     def load_annotation_db(self, path):
         # import ipdb; ipdb.set_trace()
         data = []
@@ -88,6 +88,7 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
             with env.begin(write=False, buffers=True) as txn:
                 data = list(pickle.loads(txn.get(b"keys")))
         self.data = data
+
     def init_env(self):
         self.lmdb_env = lmdb.open(
             self.lmdb_path,
@@ -97,6 +98,7 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
             readahead=False,
             meminit=False,
         )
+
     def __getitem__(self, idx):
         data = self.data[idx + self.start_idx]
         if self.store_type == "lmdb":
@@ -105,16 +107,16 @@ class LocalizedNarrativesAnnotationDatabase(AnnotationDatabase):
             with self.lmdb_env.begin(write=False, buffers=True) as txn:
                 data = pickle.loads(txn.get(data))
                 loc_narr = LocalizedNarrative(**data)
-                data={
-                        "dataset_id": loc_narr.dataset_id,
-                        "image_id": loc_narr.image_id,
-                        "caption": loc_narr.caption,
-                        "feature_path": self._feature_path(
-                            loc_narr.dataset_id, loc_narr.image_id
-                        ),
-                        "timed_caption": loc_narr.timed_caption,
-                        "traces": loc_narr.traces,
-                    }
+                data = {
+                    "dataset_id": loc_narr.dataset_id,
+                    "image_id": loc_narr.image_id,
+                    "caption": loc_narr.caption,
+                    "feature_path": self._feature_path(
+                        loc_narr.dataset_id, loc_narr.image_id
+                    ),
+                    "timed_caption": loc_narr.timed_caption,
+                    "traces": loc_narr.traces,
+                }
                 # import ipdb; ipdb.set_trace()
         return data
 

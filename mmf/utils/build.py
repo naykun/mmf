@@ -87,7 +87,7 @@ def build_model(
     model = model_class(config)
 
     if hasattr(model, "build"):
-        """ Model build involves checkpoint loading
+        """Model build involves checkpoint loading
         If the checkpoint is not available the underlying
         methods try to download it.
         Let master build the model (download the checkpoints) while

@@ -758,8 +758,7 @@ class AttnPool1d(nn.Module):
 
 
 class AttnPool2d(nn.Module):
-    """An attention pooling layer in 2D with multiheaded attention
-    """
+    """An attention pooling layer in 2D with multiheaded attention"""
 
     def __init__(
         self, spacial_dim: int, embed_dim: int, num_heads: int, output_dim: int = None
